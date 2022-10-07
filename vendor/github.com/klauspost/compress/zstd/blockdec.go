@@ -76,12 +76,11 @@ type blockDec struct {
 	// Window size of the block.
 	WindowSize uint64
 
-	history     chan *history
-	input       chan struct{}
-	result      chan decodeOutput
-	sequenceBuf []seq
-	err         error
-	decWG       sync.WaitGroup
+	history chan *history
+	input   chan struct{}
+	result  chan decodeOutput
+	err     error
+	decWG   sync.WaitGroup
 
 	// Frame to use for singlethreaded decoding.
 	// Should not be used by the decoder itself since parent may be another frame.
@@ -168,10 +167,10 @@ func (b *blockDec) reset(br byteBuffer, windowSize uint64) error {
 
 	// Read block data.
 	if cap(b.dataStorage) < cSize {
-		if b.lowMem {
+		if b.lowMem || cSize > maxCompressedBlockSize {
 			b.dataStorage = make([]byte, 0, cSize)
 		} else {
-			b.dataStorage = make([]byte, 0, maxBlockSize)
+			b.dataStorage = make([]byte, 0, maxCompressedBlockSize)
 		}
 	}
 	if cap(b.dst) <= maxSize {
@@ -512,18 +511,7 @@ func (b *blockDec) decodeCompressed(hist *history) error {
 		nSeqs = 0x7f00 + int(in[1]) + (int(in[2]) << 8)
 		in = in[3:]
 	}
-	// Allocate sequences
-	if cap(b.sequenceBuf) < nSeqs {
-		if b.lowMem {
-			b.sequenceBuf = make([]seq, nSeqs)
-		} else {
-			// Allocate max
-			b.sequenceBuf = make([]seq, nSeqs, maxSequences)
-		}
-	} else {
-		// Reuse buffer
-		b.sequenceBuf = b.sequenceBuf[:nSeqs]
-	}
+
 	var seqs = &sequenceDecs{}
 	if nSeqs > 0 {
 		if len(in) < 1 {

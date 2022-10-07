@@ -49,3 +49,46 @@ type ApprovalTaskList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []ApprovalTask `json:"items"`
 }
+
+// ApprovalTaskRunStatus contains the status stored in the ExtraFields of a Run that references a ApprovalTask.
+type ApprovalTaskRunStatus struct {
+	// ApprovalTaskSpec contains the exact spec used to instantiate the Run
+	// FIXME(openshift-pipelines) can probably remove
+	ApprovalTaskSpec *ApprovalTaskSpec `json:"taskLoopSpec,omitempty"`
+	// +optional
+	// TaskRun *v1beta1.TaskRunStatus `json:"status,omitempty"`
+}
+
+// ApprovalTaskRunReason represents a reason for the Run "Succeeded" condition
+type ApprovalTaskRunReason string
+
+const (
+	// ApprovalTaskRunReasonStarted is the reason set when the Run has just started
+	ApprovalTaskRunReasonStarted ApprovalTaskRunReason = "Started"
+
+	// ApprovalTaskRunReasonRunning indicates that the Run is in progress
+	ApprovalTaskRunReasonRunning ApprovalTaskRunReason = "Running"
+
+	// ApprovalTaskRunReasonFailed indicates that one of the TaskRuns created from the Run failed
+	ApprovalTaskRunReasonFailed ApprovalTaskRunReason = "Failed"
+
+	// ApprovalTaskRunReasonSucceeded indicates that all of the TaskRuns created from the Run completed successfully
+	ApprovalTaskRunReasonSucceeded ApprovalTaskRunReason = "Succeeded"
+
+	// ApprovalTaskRunReasonCouldntCancel indicates that a Run was cancelled but attempting to update
+	// the running TaskRun as cancelled failed.
+	ApprovalTaskRunReasonCouldntCancel ApprovalTaskRunReason = "ApprovalTaskRunCouldntCancel"
+
+	// ApprovalTaskRunReasonCouldntGetApprovalTask indicates that the associated ApprovalTask couldn't be retrieved
+	ApprovalTaskRunReasonCouldntGetApprovalTask ApprovalTaskRunReason = "CouldntGetApprovalTask"
+
+	// ApprovalTaskRunReasonFailedValidation indicates that the ApprovalTask failed runtime validation
+	ApprovalTaskRunReasonFailedValidation ApprovalTaskRunReason = "ApprovalTaskValidationFailed"
+
+	// ApprovalTaskRunReasonInternalError indicates that the ApprovalTask failed due to an internal error in the reconciler
+	ApprovalTaskRunReasonInternalError ApprovalTaskRunReason = "ApprovalTaskInternalError"
+)
+
+func (t ApprovalTaskRunReason) String() string {
+	return string(t)
+}
