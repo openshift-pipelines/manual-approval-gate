@@ -92,4 +92,6 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     - uses: imjasonh/setup-ko@v0.6
-    - run: ko publish --push=${{ github.event_name != 'pull_request' }} --base-import-paths ./cmd/...
+    - run: |
+        ko publish --push=${{ github.event_name != 'pull_request' }} --base-import-paths ./cmd/approver
+        ko publish --push=${{ github.event_name != 'pull_request' }} --base-import-paths ./cmd/controller
