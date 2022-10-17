@@ -58,3 +58,19 @@ spec:
         securityContext:
           allowPrivilegeEscalation: false
           runAsUser: 1001
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: probes
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /readiness
+            port: probes
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5

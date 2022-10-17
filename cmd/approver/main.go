@@ -31,7 +31,10 @@ func main() {
 	r := mux.NewRouter()
 	// Routes consist of a path and a handler function.
 	r.HandleFunc("/", YourHandler)
+	// FIXME use a real health check
 	r.HandleFunc("/health", handlers.HealthCheck)
+	// FIXME use a real readiness check
+	r.HandleFunc("/readiness", handlers.HealthCheck)
 
 	// Bind to a port and pass our router in
 	log.Fatal(http.ListenAndServe(":8000", r))
