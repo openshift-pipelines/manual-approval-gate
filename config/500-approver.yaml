@@ -15,7 +15,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: manual-approval-gate-controller
+  name: manual-approval-gate-approver
   namespace: openshift-pipelines
   labels:
     app.kubernetes.io/name: approver
