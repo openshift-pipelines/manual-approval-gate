@@ -3,7 +3,7 @@ module github.com/openshift-pipelines/manual-approval-gate
 go 1.18
 
 require (
-	github.com/gorilla/mux v1.8.0
+	github.com/go-chi/chi/v5 v5.0.7
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/tektoncd/pipeline v0.40.2
 	github.com/tektoncd/plumbing v0.0.0-20221005220331-b2ddcdddc5e7
