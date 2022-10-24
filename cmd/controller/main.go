@@ -17,6 +17,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 
 	"github.com/openshift-pipelines/manual-approval-gate/pkg/apis/approvaltask/v1alpha1"
 	"github.com/openshift-pipelines/manual-approval-gate/pkg/reconciler/approvaltask"
@@ -27,12 +28,15 @@ import (
 	"knative.dev/pkg/signals"
 )
 
+var features = []string{"foo"}
+
 const (
 	// ControllerLogKey is the name of the logger for the controller cmd
 	ControllerLogKey = "manual-approval-gate-controller"
 )
 
 func main() {
+	fmt.Println(features)
 	namespace := flag.String("namespace", corev1.NamespaceAll, "Namespace to restrict informer to. Optional, defaults to all namespaces.")
 
 	// This parses flags.

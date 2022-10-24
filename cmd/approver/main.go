@@ -18,23 +18,30 @@ package main
 import (
 	"log"
 	"net/http"
+	"time"
 
-	"github.com/gorilla/mux"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/openshift-pipelines/manual-approval-gate/pkg/handlers"
 )
 
-func YourHandler(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("Gorilla!\n"))
-}
-
 func main() {
-	r := mux.NewRouter()
-	// Routes consist of a path and a handler function.
-	r.HandleFunc("/", YourHandler)
+	r := chi.NewRouter()
+
+	// A good base middleware stack
+	r.Use(middleware.RequestID)
+	r.Use(middleware.RealIP)
+	r.Use(middleware.Logger)
+
+	r.Use(middleware.Timeout(60 * time.Second))
+
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("welcome"))
+	})
 	// FIXME use a real health check
-	r.HandleFunc("/health", handlers.HealthCheck)
+	r.Get("/health", handlers.HealthCheck)
 	// FIXME use a real readiness check
-	r.HandleFunc("/readiness", handlers.HealthCheck)
+	r.Get("/readiness", handlers.HealthCheck)
 
 	// Bind to a port and pass our router in
 	log.Fatal(http.ListenAndServe(":8000", r))
