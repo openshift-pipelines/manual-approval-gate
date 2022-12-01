@@ -7,7 +7,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/tektoncd/pipeline v0.42.0
 	github.com/tektoncd/plumbing v0.0.0-20221005220331-b2ddcdddc5e7
-	go.uber.org/zap v1.23.0
+	go.uber.org/zap v1.24.0
 	gomodules.xyz/jsonpatch/v2 v2.2.0
 	k8s.io/api v0.25.4
 	k8s.io/apimachinery v0.25.4
