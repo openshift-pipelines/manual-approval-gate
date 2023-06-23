@@ -16,7 +16,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v3
       with:
-        go-version: 1.18
+        go-version: 1.19
     - uses: actions/cache@v3
       with:
         path: |
@@ -39,7 +39,7 @@ jobs:
     steps:
     - uses: actions/setup-go@v3
       with:
-        go-version: 1.18
+        go-version: 1.19
     - uses: imjasonh/setup-ko@v0.6
     - uses: actions/checkout@v3
     - uses: actions/cache@v3
@@ -52,16 +52,16 @@ jobs:
           ${{ runner.os }}-golang-
     - uses: chainguard-dev/actions/setup-kind@main
       with:
-        k8s-version: v1.23.x
+        k8s-version: v1.24.x
     - uses: vdemeester/setup-tektoncd@main
       with:
-        pipeline: v0.40.x
-        pipeline-feature-flags: '{"enable-api-fields": "alpha"}'
+        pipeline: v0.49.x
+        pipeline-feature-flags: '{"enable-api-fields": "beta"}'
     - name: install manual-approval-gate custom task
       run: |
-        kubectl create namespace openshift-pipelines
+        # kubectl create namespace tekton-pipelines
         ko apply --local -f config/
-  
+
   publish:
     name: publish latest
     runs-on: ubuntu-latest
@@ -76,7 +76,7 @@ jobs:
     steps:
     - uses: actions/setup-go@v3
       with:
-        go-version: 1.18
+        go-version: 1.19
     - uses: actions/checkout@v3
     - uses: actions/cache@v3
       with:
