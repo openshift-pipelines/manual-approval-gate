@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/part-of: openshift-pipelines-manual-approval-gates
 subjects:
   - kind: ServiceAccount
-    name: tekton-taskgroup-controller
+    name: manual-approval-gate-controller
     namespace: openshift-pipelines
 roleRef:
   kind: ClusterRole
@@ -64,7 +64,7 @@ subjects:
     namespace: openshift-pipelines
 roleRef:
   kind: ClusterRole
-  name: tekton-taskgroup-leader-election
+  name: manual-approval-gate-leader-election
   apiGroup: rbac.authorization.k8s.io
 ---
 apiVersion: rbac.authorization.k8s.io/v1
