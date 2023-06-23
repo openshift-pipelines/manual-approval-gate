@@ -16,7 +16,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: manual-approval-gate-approver
-  namespace: openshift-pipelines
+  namespace: tekton-pipelines
   labels:
     app.kubernetes.io/name: approver
     app.kubernetes.io/component: approver

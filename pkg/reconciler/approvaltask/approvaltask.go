@@ -29,10 +29,9 @@ import (
 	approvaltaskv1alpha1 "github.com/openshift-pipelines/manual-approval-gate/pkg/apis/approvaltask/v1alpha1"
 	approvaltaskclientset "github.com/openshift-pipelines/manual-approval-gate/pkg/client/clientset/versioned"
 	listersapprovaltask "github.com/openshift-pipelines/manual-approval-gate/pkg/client/listers/approvaltask/v1alpha1"
-	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	clientset "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
-	runreconciler "github.com/tektoncd/pipeline/pkg/client/injection/reconciler/pipeline/v1alpha1/run"
+	customrunreconciler "github.com/tektoncd/pipeline/pkg/client/injection/reconciler/pipeline/v1beta1/customrun"
 	listersalpha "github.com/tektoncd/pipeline/pkg/client/listers/pipeline/v1alpha1"
 	listers "github.com/tektoncd/pipeline/pkg/client/listers/pipeline/v1beta1"
 	"github.com/tektoncd/pipeline/pkg/reconciler/events"
@@ -60,13 +59,14 @@ type Reconciler struct {
 	kubeClientSet         kubernetes.Interface
 	approvaltaskClientSet approvaltaskclientset.Interface
 	runLister             listersalpha.RunLister
+	customRunLister       listers.CustomRunLister
 	approvaltaskLister    listersapprovaltask.ApprovalTaskLister
 	taskRunLister         listers.TaskRunLister
 }
 
 var (
 	// Check that our Reconciler implements runreconciler.Interface
-	_                runreconciler.Interface = (*Reconciler)(nil)
+	_                customrunreconciler.Interface = (*Reconciler)(nil)
 	cancelPatchBytes []byte
 )
 
@@ -85,7 +85,7 @@ func init() {
 
 // ReconcileKind compares the actual state with the desired, and attempts to converge the two.
 // It then updates the Status block of the Run resource with the current status of the resource.
-func (c *Reconciler) ReconcileKind(ctx context.Context, run *v1alpha1.Run) pkgreconciler.Event {
+func (c *Reconciler) ReconcileKind(ctx context.Context, run *v1beta1.CustomRun) pkgreconciler.Event {
 	var merr error
 	logger := logging.FromContext(ctx)
 	logger.Infof("Reconciling Run %s/%s at %v", run.Namespace, run.Name, time.Now())
@@ -93,12 +93,12 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, run *v1alpha1.Run) pkgre
 	// Check that the Run references a ApprovalTask CRD.  The logic is controller.go should ensure that only this type of Run
 	// is reconciled this controller but it never hurts to do some bullet-proofing.
 	var apiVersion, kind string
-	if run.Spec.Ref != nil {
-		apiVersion = run.Spec.Ref.APIVersion
-		kind = string(run.Spec.Ref.Kind)
-	} else if run.Spec.Spec != nil {
-		apiVersion = run.Spec.Spec.APIVersion
-		kind = run.Spec.Spec.Kind
+	if run.Spec.CustomRef != nil {
+		apiVersion = run.Spec.CustomRef.APIVersion
+		kind = string(run.Spec.CustomRef.Kind)
+	} else if run.Spec.CustomSpec != nil {
+		apiVersion = run.Spec.CustomSpec.APIVersion
+		kind = run.Spec.CustomSpec.Kind
 	}
 	if apiVersion != approvaltaskv1alpha1.SchemeGroupVersion.String() ||
 		kind != approvaltask.ControllerName {
@@ -134,7 +134,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, run *v1alpha1.Run) pkgre
 
 	status := &approvaltaskv1alpha1.ApprovalTaskRunStatus{}
 	if err := run.Status.DecodeExtraFields(status); err != nil {
-		run.Status.MarkRunFailed(approvaltaskv1alpha1.ApprovalTaskRunReasonInternalError.String(),
+		run.Status.MarkCustomRunFailed(approvaltaskv1alpha1.ApprovalTaskRunReasonInternalError.String(),
 			"Internal error calling DecodeExtraFields: %v", err)
 		logger.Errorf("DecodeExtraFields error: %v", err.Error())
 	}
@@ -151,7 +151,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, run *v1alpha1.Run) pkgre
 	}
 
 	if err := run.Status.EncodeExtraFields(status); err != nil {
-		run.Status.MarkRunFailed(approvaltaskv1alpha1.ApprovalTaskRunReasonInternalError.String(),
+		run.Status.MarkCustomRunFailed(approvaltaskv1alpha1.ApprovalTaskRunReasonInternalError.String(),
 			"Internal error calling EncodeExtraFields: %v", err)
 		logger.Errorf("EncodeExtraFields error: %v", err.Error())
 	}
@@ -163,7 +163,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, run *v1alpha1.Run) pkgre
 	return merr
 }
 
-func (c *Reconciler) reconcile(ctx context.Context, run *v1alpha1.Run, status *approvaltaskv1alpha1.ApprovalTaskRunStatus) error {
+func (c *Reconciler) reconcile(ctx context.Context, run *v1beta1.CustomRun, status *approvaltaskv1alpha1.ApprovalTaskRunStatus) error {
 	logger := logging.FromContext(ctx)
 
 	// Get the ApprovalTask referenced by the Run
@@ -180,40 +180,39 @@ func (c *Reconciler) reconcile(ctx context.Context, run *v1alpha1.Run, status *a
 
 	// Validate ApprovalTask spec
 	if err := approvaltaskSpec.Validate(ctx); err != nil {
-		run.Status.MarkRunFailed(approvaltaskv1alpha1.ApprovalTaskRunReasonFailedValidation.String(),
+		run.Status.MarkCustomRunFailed(approvaltaskv1alpha1.ApprovalTaskRunReasonFailedValidation.String(),
 			"ApprovalTask %s/%s can't be Run; it has an invalid spec: %s",
 			approvaltaskMeta.Namespace, approvaltaskMeta.Name, err)
 		return nil
 	}
 
-	run.Status.MarkRunSucceeded(approvaltaskv1alpha1.ApprovalTaskRunReasonSucceeded.String(),
+	run.Status.MarkCustomRunSucceeded(approvaltaskv1alpha1.ApprovalTaskRunReasonSucceeded.String(),
 		"TaskRun succeeded")
 	return nil
 
-	return nil
 }
 
-func (c *Reconciler) getApprovalTask(ctx context.Context, logger *zap.SugaredLogger, run *v1alpha1.Run) (*metav1.ObjectMeta, *approvaltaskv1alpha1.ApprovalTaskSpec, error) {
+func (c *Reconciler) getApprovalTask(ctx context.Context, logger *zap.SugaredLogger, run *v1beta1.CustomRun) (*metav1.ObjectMeta, *approvaltaskv1alpha1.ApprovalTaskSpec, error) {
 	approvaltaskMeta := metav1.ObjectMeta{}
 	approvaltaskSpec := approvaltaskv1alpha1.ApprovalTaskSpec{}
-	if run.Spec.Ref != nil && run.Spec.Ref.Name != "" {
+	if run.Spec.CustomRef != nil && run.Spec.CustomRef.Name != "" {
 		// Use the k8 client to get the ApprovalTask rather than the lister.  This avoids a timing issue where
 		// the ApprovalTask is not yet in the lister cache if it is created at nearly the same time as the Run.
 		// See https://github.com/tektoncd/pipeline/issues/2740 for discussion on this issue.
 		//
-		tl, err := c.approvaltaskClientSet.OpenshiftpipelinesV1alpha1().ApprovalTasks(run.Namespace).Get(ctx, run.Spec.Ref.Name, metav1.GetOptions{})
+		tl, err := c.approvaltaskClientSet.OpenshiftpipelinesV1alpha1().ApprovalTasks(run.Namespace).Get(ctx, run.Spec.CustomRef.Name, metav1.GetOptions{})
 		if err != nil {
-			run.Status.MarkRunFailed(approvaltaskv1alpha1.ApprovalTaskRunReasonCouldntGetApprovalTask.String(),
+			run.Status.MarkCustomRunFailed(approvaltaskv1alpha1.ApprovalTaskRunReasonCouldntGetApprovalTask.String(),
 				"Error retrieving ApprovalTask for Run %s/%s: %s",
 				run.Namespace, run.Name, err)
 			return nil, nil, fmt.Errorf("Error retrieving ApprovalTask for Run %s: %w", fmt.Sprintf("%s/%s", run.Namespace, run.Name), err)
 		}
 		approvaltaskMeta = tl.ObjectMeta
 		approvaltaskSpec = tl.Spec
-	} else if run.Spec.Spec != nil {
+	} else if run.Spec.CustomSpec != nil {
 		// FIXME(openshift-pipelines) support embedded spec
-		if err := json.Unmarshal(run.Spec.Spec.Spec.Raw, &approvaltaskSpec); err != nil {
-			run.Status.MarkRunFailed(approvaltaskv1alpha1.ApprovalTaskRunReasonCouldntGetApprovalTask.String(),
+		if err := json.Unmarshal(run.Spec.CustomSpec.Spec.Raw, &approvaltaskSpec); err != nil {
+			run.Status.MarkCustomRunFailed(approvaltaskv1alpha1.ApprovalTaskRunReasonCouldntGetApprovalTask.String(),
 				"Error retrieving ApprovalTask for Run %s/%s: %s",
 				run.Namespace, run.Name, err)
 			return nil, nil, fmt.Errorf("Error retrieving ApprovalTask for Run %s: %w", fmt.Sprintf("%s/%s", run.Namespace, run.Name), err)
@@ -222,7 +221,7 @@ func (c *Reconciler) getApprovalTask(ctx context.Context, logger *zap.SugaredLog
 	return &approvaltaskMeta, &approvaltaskSpec, nil
 }
 
-func propagateApprovalTaskLabelsAndAnnotations(run *v1alpha1.Run, approvaltaskMeta *metav1.ObjectMeta) {
+func propagateApprovalTaskLabelsAndAnnotations(run *v1beta1.CustomRun, approvaltaskMeta *metav1.ObjectMeta) {
 	// Propagate labels from ApprovalTask to Run.
 	if run.ObjectMeta.Labels == nil {
 		run.ObjectMeta.Labels = make(map[string]string, len(approvaltaskMeta.Labels)+1)
@@ -247,8 +246,8 @@ func storeApprovalTaskSpec(status *approvaltaskv1alpha1.ApprovalTaskRunStatus, t
 		status.ApprovalTaskSpec = tls
 	}
 }
-func (c *Reconciler) updateLabelsAndAnnotations(ctx context.Context, run *v1alpha1.Run) error {
-	newRun, err := c.runLister.Runs(run.Namespace).Get(run.Name)
+func (c *Reconciler) updateLabelsAndAnnotations(ctx context.Context, run *v1beta1.CustomRun) error {
+	newRun, err := c.customRunLister.CustomRuns(run.Namespace).Get(run.Name)
 	if err != nil {
 		return fmt.Errorf("error getting Run %s when updating labels/annotations: %w", run.Name, err)
 	}
@@ -263,7 +262,8 @@ func (c *Reconciler) updateLabelsAndAnnotations(ctx context.Context, run *v1alph
 		if err != nil {
 			return err
 		}
-		_, err = c.pipelineClientSet.TektonV1alpha1().Runs(run.Namespace).Patch(ctx, run.Name, types.MergePatchType, patch, metav1.PatchOptions{})
+
+		_, err = c.pipelineClientSet.TektonV1beta1().CustomRuns(run.Namespace).Patch(ctx, run.Name, types.MergePatchType, patch, metav1.PatchOptions{})
 		return err
 	}
 	return nil
