@@ -56,8 +56,14 @@ spec:
       - name: tekton-taskgroup-approver
         image: ko://github.com/openshift-pipelines/manual-approval-gate/cmd/approver
         securityContext:
+          seccompProfile:
+            type: RuntimeDefault
+          runAsNonRoot: true
           allowPrivilegeEscalation: false
-          runAsUser: 1001
+          runAsUser: 65532
+          capabilities:
+            drop:
+              - ALL
         livenessProbe:
           httpGet:
             path: /health

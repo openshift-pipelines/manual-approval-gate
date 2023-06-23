@@ -69,5 +69,11 @@ spec:
         - name: METRICS_DOMAIN
           value: openshift-pipelines.org/manual-approval-gate
         securityContext:
+          seccompProfile:
+            type: RuntimeDefault
+          runAsNonRoot: true
           allowPrivilegeEscalation: false
-          runAsUser: 1001
+          runAsUser: 65532
+          capabilities:
+            drop:
+              - ALL
