@@ -23,7 +23,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: manual-approval-gate-controller
-    namespace: openshift-pipelines
+    namespace: tekton-pipelines
 roleRef:
   kind: ClusterRole
   name: manual-approval-gate-controller-cluster-access
@@ -44,7 +44,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: manual-approval-gate-controller
-    namespace: openshift-pipelines
+    namespace: tekton-pipelines
 roleRef:
   kind: ClusterRole
   name: manual-approval-gate-controller-tenant-access
@@ -61,7 +61,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: manual-approval-gate-controller
-    namespace: openshift-pipelines
+    namespace: tekton-pipelines
 roleRef:
   kind: ClusterRole
   name: manual-approval-gate-leader-election
@@ -78,7 +78,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: manual-approval-gate-webhook
-    namespace: openshift-pipelines
+    namespace: tekton-pipelines
 roleRef:
   kind: ClusterRole
   name: manual-approval-gate-webhook-cluster-access
@@ -95,7 +95,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: manual-approval-gate-webhook
-    namespace: openshift-pipelines
+    namespace: tekton-pipelines
 roleRef:
   kind: ClusterRole
   name: manual-approval-gate-leader-election

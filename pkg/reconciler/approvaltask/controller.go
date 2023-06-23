@@ -23,8 +23,8 @@ import (
 	approvaltaskclient "github.com/openshift-pipelines/manual-approval-gate/pkg/client/injection/client"
 	approvaltaskinformer "github.com/openshift-pipelines/manual-approval-gate/pkg/client/injection/informers/approvaltask/v1alpha1/approvaltask"
 	pipelineclient "github.com/tektoncd/pipeline/pkg/client/injection/client"
-	runinformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1alpha1/run"
-	runreconciler "github.com/tektoncd/pipeline/pkg/client/injection/reconciler/pipeline/v1alpha1/run"
+	customruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1beta1/customrun"
+	customrunreconciler "github.com/tektoncd/pipeline/pkg/client/injection/reconciler/pipeline/v1beta1/customrun"
 	pipelinecontroller "github.com/tektoncd/pipeline/pkg/controller"
 	"k8s.io/client-go/tools/cache"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
@@ -41,18 +41,18 @@ func NewController() func(context.Context, configmap.Watcher) *controller.Impl {
 		kubeclientset := kubeclient.Get(ctx)
 		pipelineclientset := pipelineclient.Get(ctx)
 		approvaltaskclientset := approvaltaskclient.Get(ctx)
-		runInformer := runinformer.Get(ctx)
+		customRunInformer := customruninformer.Get(ctx)
 		approvaltaskInformer := approvaltaskinformer.Get(ctx)
 
 		c := &Reconciler{
 			kubeClientSet:         kubeclientset,
 			pipelineClientSet:     pipelineclientset,
 			approvaltaskClientSet: approvaltaskclientset,
-			runLister:             runInformer.Lister(),
+			customRunLister:       customRunInformer.Lister(),
 			approvaltaskLister:    approvaltaskInformer.Lister(),
 		}
 
-		impl := runreconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {
+		impl := customrunreconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {
 			return controller.Options{
 				AgentName: "run-approvaltask",
 			}
@@ -61,8 +61,8 @@ func NewController() func(context.Context, configmap.Watcher) *controller.Impl {
 		logger.Info("Setting up event handlers")
 
 		// Add event handler for Runs
-		runInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-			FilterFunc: pipelinecontroller.FilterRunRef(approvaltaskv1alpha1.SchemeGroupVersion.String(), approvaltask.ControllerName),
+		customRunInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+			FilterFunc: pipelinecontroller.FilterCustomRunRef(approvaltaskv1alpha1.SchemeGroupVersion.String(), approvaltask.ControllerName),
 			Handler:    controller.HandleAll(impl.Enqueue),
 		})
 
