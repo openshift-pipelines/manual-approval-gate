@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -35,13 +35,20 @@ func main() {
 
 	r.Use(middleware.Timeout(60 * time.Second))
 
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("welcome"))
-	})
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {})
 	// FIXME use a real health check
 	r.Get("/health", handlers.HealthCheck)
 	// FIXME use a real readiness check
 	r.Get("/readiness", handlers.HealthCheck)
+
+	kubeClient, err := handlers.CreateKubeClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	r.Get("/approvaltask", func(w http.ResponseWriter, r *http.Request) {
+		handlers.ListApprovalTask(w, r, kubeClient)
+	})
 
 	// Bind to a port and pass our router in
 	log.Fatal(http.ListenAndServe(":8000", r))

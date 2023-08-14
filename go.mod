@@ -5,6 +5,7 @@ go 1.18
 require (
 	github.com/go-chi/chi/v5 v5.0.8
 	github.com/hashicorp/go-multierror v1.1.1
+	github.com/stretchr/testify v1.8.3
 	github.com/tektoncd/pipeline v0.49.0
 	github.com/tektoncd/plumbing v0.0.0-20221005220331-b2ddcdddc5e7
 	go.uber.org/zap v1.24.0
@@ -66,6 +67,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.0-rc3 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_golang v1.13.0 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
