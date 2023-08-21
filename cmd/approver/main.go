@@ -16,6 +16,9 @@ limitations under the License.
 package main
 
 import (
+	"k8s.io/client-go/dynamic"
+	"knative.dev/pkg/injection"
+	"knative.dev/pkg/signals"
 	"log"
 	"net/http"
 	"time"
@@ -35,19 +38,19 @@ func main() {
 
 	r.Use(middleware.Timeout(60 * time.Second))
 
+	cfg := injection.ParseAndGetRESTConfigOrDie()
+	ctx := signals.NewContext()
+	ctx = injection.WithConfig(ctx, cfg)
+	dynamicClient := dynamic.NewForConfigOrDie(cfg)
+
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {})
 	// FIXME use a real health check
 	r.Get("/health", handlers.HealthCheck)
 	// FIXME use a real readiness check
 	r.Get("/readiness", handlers.HealthCheck)
 
-	kubeClient, err := handlers.CreateKubeClient()
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	r.Get("/approvaltask", func(w http.ResponseWriter, r *http.Request) {
-		handlers.ListApprovalTask(w, r, kubeClient)
+		handlers.ListApprovalTask(w, r, dynamicClient)
 	})
 
 	// Bind to a port and pass our router in
