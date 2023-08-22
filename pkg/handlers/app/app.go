@@ -34,10 +34,14 @@ var (
 
 type ApprovalTask struct {
 	Name      string `json:"name"`
-	Namespace string `json:"namespace"`
+	Namespace string `json:"namespace,omitempty"`
 	Approved  bool   `json:"approved"`
 }
 
 type ApprovalTaskList struct {
 	Data []ApprovalTask `json:"data"`
+}
+
+type ApprovalTaskResult struct {
+	Data ApprovalTask `json:"data"`
 }
