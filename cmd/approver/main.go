@@ -53,6 +53,10 @@ func main() {
 		handlers.ListApprovalTask(w, r, dynamicClient)
 	})
 
+	r.Post("/approvaltask/{approvalTaskName}", func(w http.ResponseWriter, r *http.Request) {
+		handlers.UpdateApprovalTask(w, r, dynamicClient)
+	})
+
 	// Bind to a port and pass our router in
 	log.Fatal(http.ListenAndServe(":8000", r))
 }
