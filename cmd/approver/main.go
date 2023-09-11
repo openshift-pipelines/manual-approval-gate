@@ -16,12 +16,13 @@ limitations under the License.
 package main
 
 import (
-	"k8s.io/client-go/dynamic"
-	"knative.dev/pkg/injection"
-	"knative.dev/pkg/signals"
 	"log"
 	"net/http"
 	"time"
+
+	"k8s.io/client-go/dynamic"
+	"knative.dev/pkg/injection"
+	"knative.dev/pkg/signals"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"

@@ -16,7 +16,9 @@ limitations under the License.
 
 package app
 
-import "k8s.io/apimachinery/pkg/runtime/schema"
+import (
+	"k8s.io/apimachinery/pkg/runtime/schema"
+)
 
 const (
 	Group    = "openshift-pipelines.org"
@@ -35,7 +37,7 @@ var (
 type ApprovalTask struct {
 	Name      string `json:"name"`
 	Namespace string `json:"namespace,omitempty"`
-	Approved  bool   `json:"approved"`
+	Approved  string `json:"approved"`
 }
 
 type ApprovalTaskList struct {

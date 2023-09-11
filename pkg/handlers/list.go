@@ -19,11 +19,12 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+
 	"github.com/openshift-pipelines/manual-approval-gate/pkg/handlers/app"
 	kErr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
-	"net/http"
 )
 
 func ListApprovalTask(res http.ResponseWriter, req *http.Request, dynamicClient dynamic.Interface) {
@@ -47,7 +48,7 @@ func ListApprovalTask(res http.ResponseWriter, req *http.Request, dynamicClient 
 
 	approvalTaskList := make([]app.ApprovalTask, 0)
 	for _, cr := range customResourceList.Items {
-		approved := cr.Object["spec"].(map[string]interface{})["approved"].(bool)
+		approved := cr.Object["spec"].(map[string]interface{})["approved"].(string)
 		approvalTaskList = append(approvalTaskList, app.ApprovalTask{Name: cr.GetName(), Namespace: cr.GetNamespace(), Approved: approved})
 	}
 

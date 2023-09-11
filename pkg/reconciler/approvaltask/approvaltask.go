@@ -26,6 +26,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/openshift-pipelines/manual-approval-gate/pkg/apis/approvaltask"
+	"github.com/openshift-pipelines/manual-approval-gate/pkg/apis/approvaltask/v1alpha1"
 	approvaltaskv1alpha1 "github.com/openshift-pipelines/manual-approval-gate/pkg/apis/approvaltask/v1alpha1"
 	approvaltaskclientset "github.com/openshift-pipelines/manual-approval-gate/pkg/client/clientset/versioned"
 	listersapprovaltask "github.com/openshift-pipelines/manual-approval-gate/pkg/client/listers/approvaltask/v1alpha1"
@@ -37,6 +38,7 @@ import (
 	"github.com/tektoncd/pipeline/pkg/reconciler/events"
 	"go.uber.org/zap"
 	"gomodules.xyz/jsonpatch/v2"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -143,6 +145,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, run *v1beta1.CustomRun) 
 	if err := c.reconcile(ctx, run, status); err != nil {
 		logger.Errorf("Reconcile error: %v", err.Error())
 		merr = multierror.Append(merr, err)
+		return merr
 	}
 
 	if err := c.updateLabelsAndAnnotations(ctx, run); err != nil {
@@ -186,26 +189,58 @@ func (c *Reconciler) reconcile(ctx context.Context, run *v1beta1.CustomRun, stat
 		return nil
 	}
 
-	run.Status.MarkCustomRunSucceeded(approvaltaskv1alpha1.ApprovalTaskRunReasonSucceeded.String(),
-		"TaskRun succeeded")
-	return nil
+	if approvaltaskSpec.Approved == "wait" {
+		// return fmt.Errorf("reconcile again and proceed")
+		// run.Status.MarkCustomRunRunning("Status of approval task is false/wait", "Waiting for approval")
+		logger.Info("Approval task is in wait state")
+		return nil
+	}
 
+	if approvaltaskSpec.Approved == "false" {
+		logger.Infof("Approval task %s is denied", approvaltaskSpec.Name)
+		run.Status.MarkCustomRunFailed(approvaltaskv1alpha1.ApprovalTaskRunReasonFailed.String(), "Approval Task denied")
+		return nil
+	}
+
+	if approvaltaskSpec.Approved == "true" {
+		run.Status.MarkCustomRunSucceeded(approvaltaskv1alpha1.ApprovalTaskRunReasonSucceeded.String(),
+			"TaskRun succeeded")
+		return nil
+
+	}
+
+	return nil
 }
 
 func (c *Reconciler) getApprovalTask(ctx context.Context, logger *zap.SugaredLogger, run *v1beta1.CustomRun) (*metav1.ObjectMeta, *approvaltaskv1alpha1.ApprovalTaskSpec, error) {
 	approvaltaskMeta := metav1.ObjectMeta{}
 	approvaltaskSpec := approvaltaskv1alpha1.ApprovalTaskSpec{}
-	if run.Spec.CustomRef != nil && run.Spec.CustomRef.Name != "" {
+
+	if run.Spec.CustomRef != nil {
 		// Use the k8 client to get the ApprovalTask rather than the lister.  This avoids a timing issue where
 		// the ApprovalTask is not yet in the lister cache if it is created at nearly the same time as the Run.
 		// See https://github.com/tektoncd/pipeline/issues/2740 for discussion on this issue.
 		//
-		tl, err := c.approvaltaskClientSet.OpenshiftpipelinesV1alpha1().ApprovalTasks(run.Namespace).Get(ctx, run.Spec.CustomRef.Name, metav1.GetOptions{})
+		tl, err := c.approvaltaskClientSet.OpenshiftpipelinesV1alpha1().ApprovalTasks(run.Namespace).Get(ctx, run.Name, metav1.GetOptions{})
 		if err != nil {
-			run.Status.MarkCustomRunFailed(approvaltaskv1alpha1.ApprovalTaskRunReasonCouldntGetApprovalTask.String(),
-				"Error retrieving ApprovalTask for Run %s/%s: %s",
-				run.Namespace, run.Name, err)
-			return nil, nil, fmt.Errorf("Error retrieving ApprovalTask for Run %s: %w", fmt.Sprintf("%s/%s", run.Namespace, run.Name), err)
+			if errors.IsNotFound(err) {
+				approvalTask := &v1alpha1.ApprovalTask{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: run.Name,
+					},
+					Spec: v1alpha1.ApprovalTaskSpec{
+						Name:     run.Name,
+						Approved: "wait",
+					},
+				}
+
+				tl, err = c.approvaltaskClientSet.OpenshiftpipelinesV1alpha1().ApprovalTasks(run.Namespace).Create(ctx, approvalTask, metav1.CreateOptions{})
+				if err != nil {
+					return nil, nil, err
+				}
+
+				logger.Infof("Approval Task %s is created", approvalTask.Name)
+			}
 		}
 		approvaltaskMeta = tl.ObjectMeta
 		approvaltaskSpec = tl.Spec

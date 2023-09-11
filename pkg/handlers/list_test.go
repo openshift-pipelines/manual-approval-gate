@@ -19,12 +19,13 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"github.com/openshift-pipelines/manual-approval-gate/pkg/handlers/app"
 	"io"
-	"k8s.io/apimachinery/pkg/runtime"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/openshift-pipelines/manual-approval-gate/pkg/handlers/app"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -57,7 +58,7 @@ func TestListApprovalTask(t *testing.T) {
 				"namespace": "default",
 			},
 			"spec": map[string]interface{}{
-				"approved": true,
+				"approved": "true",
 			},
 		},
 	}
