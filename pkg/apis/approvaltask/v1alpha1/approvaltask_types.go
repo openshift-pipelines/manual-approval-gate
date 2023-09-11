@@ -38,7 +38,7 @@ type ApprovalTask struct {
 
 type ApprovalTaskSpec struct {
 	Name     string `json:"name"`
-	Approved bool   `json:"approved"`
+	Approved string `json:"approved"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
