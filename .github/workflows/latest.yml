@@ -86,7 +86,7 @@ jobs:
         key: ${{ runner.os }}-golang-${{ hashFiles('**/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-golang-
-    - uses: docker/login-action@v2
+    - uses: docker/login-action@v3
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
