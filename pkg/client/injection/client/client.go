@@ -20,24 +20,10 @@ package client
 
 import (
 	context "context"
-	json "encoding/json"
-	errors "errors"
-	fmt "fmt"
 
-	v1alpha1 "github.com/openshift-pipelines/manual-approval-gate/pkg/apis/approvaltask/v1alpha1"
 	versioned "github.com/openshift-pipelines/manual-approval-gate/pkg/client/clientset/versioned"
-	typedopenshiftpipelinesv1alpha1 "github.com/openshift-pipelines/manual-approval-gate/pkg/client/clientset/versioned/typed/approvaltask/v1alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	runtime "k8s.io/apimachinery/pkg/runtime"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	discovery "k8s.io/client-go/discovery"
-	dynamic "k8s.io/client-go/dynamic"
 	rest "k8s.io/client-go/rest"
 	injection "knative.dev/pkg/injection"
-	dynamicclient "knative.dev/pkg/injection/clients/dynamicclient"
 	logging "knative.dev/pkg/logging"
 )
 
@@ -46,7 +32,6 @@ func init() {
 	injection.Default.RegisterClientFetcher(func(ctx context.Context) interface{} {
 		return Get(ctx)
 	})
-	injection.Dynamic.RegisterDynamicClient(withClientFromDynamic)
 }
 
 // Key is used as the key for associating information with a context.Context.
@@ -54,10 +39,6 @@ type Key struct{}
 
 func withClientFromConfig(ctx context.Context, cfg *rest.Config) context.Context {
 	return context.WithValue(ctx, Key{}, versioned.NewForConfigOrDie(cfg))
-}
-
-func withClientFromDynamic(ctx context.Context) context.Context {
-	return context.WithValue(ctx, Key{}, &wrapClient{dyn: dynamicclient.Get(ctx)})
 }
 
 // Get extracts the versioned.Interface client from the context.
@@ -73,171 +54,4 @@ func Get(ctx context.Context) versioned.Interface {
 		}
 	}
 	return untyped.(versioned.Interface)
-}
-
-type wrapClient struct {
-	dyn dynamic.Interface
-}
-
-var _ versioned.Interface = (*wrapClient)(nil)
-
-func (w *wrapClient) Discovery() discovery.DiscoveryInterface {
-	panic("Discovery called on dynamic client!")
-}
-
-func convert(from interface{}, to runtime.Object) error {
-	bs, err := json.Marshal(from)
-	if err != nil {
-		return fmt.Errorf("Marshal() = %w", err)
-	}
-	if err := json.Unmarshal(bs, to); err != nil {
-		return fmt.Errorf("Unmarshal() = %w", err)
-	}
-	return nil
-}
-
-// OpenshiftpipelinesV1alpha1 retrieves the OpenshiftpipelinesV1alpha1Client
-func (w *wrapClient) OpenshiftpipelinesV1alpha1() typedopenshiftpipelinesv1alpha1.OpenshiftpipelinesV1alpha1Interface {
-	return &wrapOpenshiftpipelinesV1alpha1{
-		dyn: w.dyn,
-	}
-}
-
-type wrapOpenshiftpipelinesV1alpha1 struct {
-	dyn dynamic.Interface
-}
-
-func (w *wrapOpenshiftpipelinesV1alpha1) RESTClient() rest.Interface {
-	panic("RESTClient called on dynamic client!")
-}
-
-func (w *wrapOpenshiftpipelinesV1alpha1) ApprovalTasks(namespace string) typedopenshiftpipelinesv1alpha1.ApprovalTaskInterface {
-	return &wrapOpenshiftpipelinesV1alpha1ApprovalTaskImpl{
-		dyn: w.dyn.Resource(schema.GroupVersionResource{
-			Group:    "openshiftpipelines.org",
-			Version:  "v1alpha1",
-			Resource: "approvaltasks",
-		}),
-
-		namespace: namespace,
-	}
-}
-
-type wrapOpenshiftpipelinesV1alpha1ApprovalTaskImpl struct {
-	dyn dynamic.NamespaceableResourceInterface
-
-	namespace string
-}
-
-var _ typedopenshiftpipelinesv1alpha1.ApprovalTaskInterface = (*wrapOpenshiftpipelinesV1alpha1ApprovalTaskImpl)(nil)
-
-func (w *wrapOpenshiftpipelinesV1alpha1ApprovalTaskImpl) Create(ctx context.Context, in *v1alpha1.ApprovalTask, opts v1.CreateOptions) (*v1alpha1.ApprovalTask, error) {
-	in.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "openshiftpipelines.org",
-		Version: "v1alpha1",
-		Kind:    "ApprovalTask",
-	})
-	uo := &unstructured.Unstructured{}
-	if err := convert(in, uo); err != nil {
-		return nil, err
-	}
-	uo, err := w.dyn.Namespace(w.namespace).Create(ctx, uo, opts)
-	if err != nil {
-		return nil, err
-	}
-	out := &v1alpha1.ApprovalTask{}
-	if err := convert(uo, out); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (w *wrapOpenshiftpipelinesV1alpha1ApprovalTaskImpl) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	return w.dyn.Namespace(w.namespace).Delete(ctx, name, opts)
-}
-
-func (w *wrapOpenshiftpipelinesV1alpha1ApprovalTaskImpl) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	return w.dyn.Namespace(w.namespace).DeleteCollection(ctx, opts, listOpts)
-}
-
-func (w *wrapOpenshiftpipelinesV1alpha1ApprovalTaskImpl) Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.ApprovalTask, error) {
-	uo, err := w.dyn.Namespace(w.namespace).Get(ctx, name, opts)
-	if err != nil {
-		return nil, err
-	}
-	out := &v1alpha1.ApprovalTask{}
-	if err := convert(uo, out); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (w *wrapOpenshiftpipelinesV1alpha1ApprovalTaskImpl) List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.ApprovalTaskList, error) {
-	uo, err := w.dyn.Namespace(w.namespace).List(ctx, opts)
-	if err != nil {
-		return nil, err
-	}
-	out := &v1alpha1.ApprovalTaskList{}
-	if err := convert(uo, out); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (w *wrapOpenshiftpipelinesV1alpha1ApprovalTaskImpl) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.ApprovalTask, err error) {
-	uo, err := w.dyn.Namespace(w.namespace).Patch(ctx, name, pt, data, opts)
-	if err != nil {
-		return nil, err
-	}
-	out := &v1alpha1.ApprovalTask{}
-	if err := convert(uo, out); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (w *wrapOpenshiftpipelinesV1alpha1ApprovalTaskImpl) Update(ctx context.Context, in *v1alpha1.ApprovalTask, opts v1.UpdateOptions) (*v1alpha1.ApprovalTask, error) {
-	in.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "openshiftpipelines.org",
-		Version: "v1alpha1",
-		Kind:    "ApprovalTask",
-	})
-	uo := &unstructured.Unstructured{}
-	if err := convert(in, uo); err != nil {
-		return nil, err
-	}
-	uo, err := w.dyn.Namespace(w.namespace).Update(ctx, uo, opts)
-	if err != nil {
-		return nil, err
-	}
-	out := &v1alpha1.ApprovalTask{}
-	if err := convert(uo, out); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (w *wrapOpenshiftpipelinesV1alpha1ApprovalTaskImpl) UpdateStatus(ctx context.Context, in *v1alpha1.ApprovalTask, opts v1.UpdateOptions) (*v1alpha1.ApprovalTask, error) {
-	in.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "openshiftpipelines.org",
-		Version: "v1alpha1",
-		Kind:    "ApprovalTask",
-	})
-	uo := &unstructured.Unstructured{}
-	if err := convert(in, uo); err != nil {
-		return nil, err
-	}
-	uo, err := w.dyn.Namespace(w.namespace).UpdateStatus(ctx, uo, opts)
-	if err != nil {
-		return nil, err
-	}
-	out := &v1alpha1.ApprovalTask{}
-	if err := convert(uo, out); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (w *wrapOpenshiftpipelinesV1alpha1ApprovalTaskImpl) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return nil, errors.New("NYI: Watch")
 }
