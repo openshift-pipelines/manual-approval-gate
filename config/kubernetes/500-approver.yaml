@@ -48,10 +48,10 @@ spec:
         # tekton.dev/release value replaced with inputs.params.versionTag in pipeline/tekton/publish.yaml
         pipeline.tekton.dev/release: "devel"
         # labels below are related to istio and should not be used for resource lookup
-        app: tekton-taskgroup-approver
+        app: manual-approval-gate-approver
         version: "devel"
     spec:
-      # serviceAccountName: manual-approval-gate-controller # FIXME: probably not even needed
+      serviceAccountName: manual-approval-gate-controller # FIXME: probably not even needed
       containers:
       - name: tekton-taskgroup-approver
         image: ko://github.com/openshift-pipelines/manual-approval-gate/cmd/approver
@@ -64,19 +64,19 @@ spec:
           capabilities:
             drop:
               - ALL
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: probes
-            scheme: HTTP
-          initialDelaySeconds: 5
-          periodSeconds: 10
-          timeoutSeconds: 5
-        readinessProbe:
-          httpGet:
-            path: /readiness
-            port: probes
-            scheme: HTTP
-          initialDelaySeconds: 5
-          periodSeconds: 10
-          timeoutSeconds: 5
+#        livenessProbe:
+#          httpGet:
+#            path: /health
+#            port: probes
+#            scheme: HTTP
+#          initialDelaySeconds: 5
+#          periodSeconds: 10
+#          timeoutSeconds: 5
+#        readinessProbe:
+#          httpGet:
+#            path: /readiness
+#            port: probes
+#            scheme: HTTP
+#          initialDelaySeconds: 5
+#          periodSeconds: 10
+#          timeoutSeconds: 5

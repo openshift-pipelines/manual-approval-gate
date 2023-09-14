@@ -60,7 +60,7 @@ jobs:
     - name: install manual-approval-gate custom task
       run: |
         # kubectl create namespace tekton-pipelines
-        ko apply --local -f config/
+        ko apply --local -f config/kubernetes
 
   publish:
     name: publish latest

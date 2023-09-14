@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: manual-approval-gate-approver
+  namespace: openshift-pipelines
+  labels:
+    app: manual-approval-gate-approver
+spec:
+  selector:
+    app: manual-approval-gate-approver
+  ports:
+    - name: manual-approval-gate-approver
+      port: 8000
+      targetPort: 8000
+  type: NodePort

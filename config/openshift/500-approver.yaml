@@ -1,0 +1,82 @@
+# Copyright 2022 The OpenShift Pipelines Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: manual-approval-gate-approver
+  namespace: openshift-pipelines
+  labels:
+    app.kubernetes.io/name: approver
+    app.kubernetes.io/component: approver
+    app.kubernetes.io/instance: default
+    app.kubernetes.io/version: "devel"
+    app.kubernetes.io/part-of: openshift-pipelines-manual-approval-gates
+    # tekton.dev/release value replaced with inputs.params.versionTag in pipeline/tekton/publish.yaml
+    pipeline.tekton.dev/release: "devel"
+    # labels below are related to istio and should not be used for resource lookup
+    version: "devel"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: approver
+      app.kubernetes.io/component: approver
+      app.kubernetes.io/instance: default
+      app.kubernetes.io/part-of: openshift-pipelines-manual-approval-gates
+  template:
+    metadata:
+      annotations:
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
+      labels:
+        app.kubernetes.io/name: approver
+        app.kubernetes.io/component: approver
+        app.kubernetes.io/instance: default
+        app.kubernetes.io/version: "devel"
+        app.kubernetes.io/part-of: openshift-pipelines-manual-approval-gates
+        # tekton.dev/release value replaced with inputs.params.versionTag in pipeline/tekton/publish.yaml
+        pipeline.tekton.dev/release: "devel"
+        # labels below are related to istio and should not be used for resource lookup
+        app: manual-approval-gate-approver
+        version: "devel"
+    spec:
+      serviceAccountName: manual-approval-gate-controller # FIXME: probably not even needed
+      containers:
+      - name: tekton-taskgroup-approver
+        image: ko://github.com/openshift-pipelines/manual-approval-gate/cmd/approver
+        securityContext:
+          seccompProfile:
+            type: RuntimeDefault
+          # runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          # runAsUser: 65532
+          capabilities:
+            drop:
+              - ALL
+#        livenessProbe:
+#          httpGet:
+#            path: /health
+#            port: probes
+#            scheme: HTTP
+#          initialDelaySeconds: 5
+#          periodSeconds: 10
+#          timeoutSeconds: 5
+#        readinessProbe:
+#          httpGet:
+#            path: /readiness
+#            port: probes
+#            scheme: HTTP
+#          initialDelaySeconds: 5
+#          periodSeconds: 10
+#          timeoutSeconds: 5
