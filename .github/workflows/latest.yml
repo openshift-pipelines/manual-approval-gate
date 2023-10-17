@@ -35,6 +35,8 @@ jobs:
     name: e2e tests
     runs-on: ubuntu-latest
     needs: [ build ]
+    env:
+      KO_DOCKER_REPO: registry.local:5000/knative
 
     steps:
     - uses: actions/setup-go@v4
@@ -52,15 +54,18 @@ jobs:
           ${{ runner.os }}-golang-
     - uses: chainguard-dev/actions/setup-kind@main
       with:
-        k8s-version: v1.24.x
+        k8s-version: v1.25.x
     - uses: vdemeester/setup-tektoncd@main
       with:
-        pipeline: v0.49.x
+        pipeline: v0.51.x
         pipeline-feature-flags: '{"enable-api-fields": "beta"}'
     - name: install manual-approval-gate custom task
       run: |
         # kubectl create namespace tekton-pipelines
-        ko apply --local -f config/kubernetes
+
+        ko apply -f config/kubernetes --local --base-import-paths
+        chmod +x test/e2e-test.sh
+        ./test/e2e-test.sh
 
   publish:
     name: publish latest

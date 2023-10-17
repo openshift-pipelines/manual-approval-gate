@@ -23,7 +23,7 @@ function install_pipeline_crd() {
 
 function install_manual_approval_crd() {
   echo ">> Deploying Manual Approval Gate"
-  ko apply -f /home/Puneet/openshift-pipelines/manual-approval-gate/config/kubernetes
+  ko apply -f config/kubernetes
   wait_until_pods_running tekton-pipelines || fail_test "Manual Approval did not come up"
 }
 
@@ -71,13 +71,15 @@ create_kind_cluster() {
 }
 
 main() {
-  create_kind_cluster
+  # create_kind_cluster
 
   # Script entry point.
   export RELEASE_YAML="https://storage.googleapis.com/tekton-releases/pipeline/previous/v0.51.0/release.yaml"
-  install_pipeline_crd
+  # install_pipeline_crd
 
-  install_manual_approval_crd
+  # install_manual_approval_crd
+
+  wait_until_pods_running tekton-pipelines || fail_test "Manual Approval did not come up"
 
   failed=0
 
