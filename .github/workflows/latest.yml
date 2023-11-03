@@ -52,18 +52,8 @@ jobs:
         key: ${{ runner.os }}-golang-${{ hashFiles('**/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-golang-
-    - uses: chainguard-dev/actions/setup-kind@main
-      with:
-        k8s-version: v1.25.x
-    - uses: vdemeester/setup-tektoncd@main
-      with:
-        pipeline: v0.51.x
-        pipeline-feature-flags: '{"enable-api-fields": "beta"}'
     - name: install manual-approval-gate custom task
       run: |
-        # kubectl create namespace tekton-pipelines
-
-        ko apply -f config/kubernetes --local --base-import-paths
         chmod +x test/e2e-test.sh
         ./test/e2e-test.sh
 
