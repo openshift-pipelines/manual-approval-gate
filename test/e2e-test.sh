@@ -1,5 +1,59 @@
 #!/usr/bin/env bash
 
+export KIND_CLUSTER_NAME=${KIND_CLUSTER_NAME:-kind}
+export KUBECONFIG=${HOME}/.kube/config.${KIND_CLUSTER_NAME}
+kind=$(type -p kind)
+TMPD=$(mktemp -d /tmp/.GITXXXX)
+REG_PORT='5000'
+REG_NAME='kind-registry'
+INSTALL_FROM_RELEASE=
+SUDO=sudo
+
+source $(dirname $0)/../vendor/github.com/tektoncd/plumbing/scripts/e2e-tests.sh
+
+function start_registry() {
+    running="$(docker inspect -f '{{.State.Running}}' ${REG_NAME} 2>/dev/null || echo false)"
+
+    if [[ ${running} != "true" ]];then
+        docker rm -f kind-registry || true
+        docker run \
+               -d --restart=always -p "127.0.0.1:${REG_PORT}:5000" \
+               -e REGISTRY_HTTP_SECRET=secret \
+               --name "${REG_NAME}" \
+               registry:2
+    fi
+}
+
+function reinstall_kind() {
+	${SUDO} $kind delete cluster --name ${KIND_CLUSTER_NAME} || true
+	sed "s,%DOCKERCFG%,${HOME}/.docker/config.json," test/kind.yaml > ${TMPD}/kconfig.yaml
+
+       cat <<EOF >> ${TMPD}/kconfig.yaml
+containerdConfigPatches:
+- |-
+  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:${REG_PORT}"]
+    endpoint = ["http://${REG_NAME}:5000"]
+EOF
+
+	${SUDO} ${kind} create cluster --name ${KIND_CLUSTER_NAME} --config  ${TMPD}/kconfig.yaml
+	mkdir -p $(dirname ${KUBECONFIG})
+	${SUDO} ${kind} --name ${KIND_CLUSTER_NAME} get kubeconfig > ${KUBECONFIG}
+
+
+    docker network connect "kind" "${REG_NAME}" 2>/dev/null || true
+    cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: local-registry-hosting
+  namespace: kube-public
+data:
+  localRegistryHosting.v1: |
+    host: "localhost:${REG_PORT}"
+    help: "https://kind.sigs.k8s.io/docs/user/local-registry/"
+EOF
+}
+
 function install_pipeline_crd() {
   local latestreleaseyaml
   echo ">> Deploying Tekton Pipelines"
@@ -23,7 +77,7 @@ function install_pipeline_crd() {
 
 function install_manual_approval_crd() {
   echo ">> Deploying Manual Approval Gate"
-  ko apply -f config/kubernetes
+  env KO_DOCKER_REPO=localhost:5000 ko apply -f config/kubernetes --sbom=none -B >/dev/null
   wait_until_pods_running tekton-pipelines || fail_test "Manual Approval did not come up"
 }
 
@@ -56,38 +110,16 @@ function wait_until_pods_running() {
   return 1
 }
 
-# Define the function to create a Kind cluster.
-create_kind_cluster() {
-   # Create a Kind cluster configuration file.
-  kind create cluster --image kindest/node:v1.25.0
-
-  # Check if the Kind cluster was created successfully.
-  if [ $? -eq 0 ]; then
-    echo "Kind cluster created successfully."
-  else
-    echo "Failed to create Kind cluster."
-    exit 1
-  fi
-}
-
 main() {
-  # create_kind_cluster
+  start_registry
+	reinstall_kind
+  install_pipeline_crd
+  install_manual_approval_crd
 
-  # Script entry point.
-  export RELEASE_YAML="https://storage.googleapis.com/tekton-releases/pipeline/previous/v0.51.0/release.yaml"
-  # install_pipeline_crd
-
-  # install_manual_approval_crd
-
-  wait_until_pods_running tekton-pipelines || fail_test "Manual Approval did not come up"
-
-  failed=0
-
-  KUBECONFIG=${KUBECONFIG:-"${HOME}/.kube/config"}
-  KUBECONFIG_PARAM=${KUBECONFIG:+"--kubeconfig $KUBECONFIG"}
-  # Run the integration tests
   echo "Running Go e2e tests"
-  go test -v -count=1 -tags=e2e -timeout=20m ./test/e2e_test.go ${KUBECONFIG_PARAM}  || failed=1
+  go test -v -count=1 -tags=e2e -timeout=20m ./test/e2e_test.go ${KUBECONFIG_PARAM} || fail_test "E2E test failed....."
+
+  success
 }
 
 main
