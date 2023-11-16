@@ -13,10 +13,10 @@ require (
 	go.uber.org/zap v1.26.0
 	gomodules.xyz/jsonpatch/v2 v2.4.0
 	k8s.io/api v0.27.1
-	k8s.io/apimachinery v0.27.3
+	k8s.io/apimachinery v0.28.4
 	k8s.io/client-go v0.27.1
 	k8s.io/code-generator v0.26.5
-	k8s.io/kube-openapi v0.0.0-20230515203736-54b630e78af5
+	k8s.io/kube-openapi v0.0.0-20230717233707-2695361300d9
 	knative.dev/pkg v0.0.0-20231011193800-bd99f2f98be7
 )
 
@@ -50,6 +50,7 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/cel-go v0.12.6 // indirect
 	github.com/google/gnostic v0.6.9 // indirect
+	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/go-containerregistry v0.16.1 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
