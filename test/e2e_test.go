@@ -76,7 +76,7 @@ func TestApproveManualApprovalTask(t *testing.T) {
 		err = json.NewDecoder(resp.Body).Decode(&approvalTask)
 		assert.NoError(t, err)
 
-		assert.Equal(t, "true", approvalTask.Data.Approved)
+		assert.Equal(t, "true", string(approvalTask.Data.Approved))
 	})
 
 }
@@ -134,7 +134,7 @@ func TestDisApproveManualApprovalTask(t *testing.T) {
 		err = json.NewDecoder(resp.Body).Decode(&approvalTask)
 		assert.NoError(t, err)
 
-		assert.Equal(t, "false", approvalTask.Data.Approved)
+		assert.Equal(t, "false", string(approvalTask.Data.Approved))
 	})
 
 }
