@@ -49,7 +49,7 @@ func ListApprovalTask(res http.ResponseWriter, req *http.Request, dynamicClient 
 	approvalTaskList := make([]app.ApprovalTask, 0)
 	for _, cr := range customResourceList.Items {
 		approved := cr.Object["spec"].(map[string]interface{})["approved"].(string)
-		approvalTaskList = append(approvalTaskList, app.ApprovalTask{Name: cr.GetName(), Namespace: cr.GetNamespace(), Approved: approved})
+		approvalTaskList = append(approvalTaskList, app.ApprovalTask{Name: cr.GetName(), Namespace: cr.GetNamespace(), Approved: app.BoolValue(approved)})
 	}
 
 	approvalTask := app.ApprovalTaskList{

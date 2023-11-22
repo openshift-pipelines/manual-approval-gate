@@ -78,7 +78,7 @@ func TestUpdateApprovalTask(t *testing.T) {
 	ts := httptest.NewServer(r)
 	defer ts.Close()
 
-	data := `{"approved":"true", "namespace":"default"}`
+	data := `{"approved":true, "namespace":"default"}`
 	resp, err := http.Post(ts.URL+"/approvaltask/example-task", "application/json", strings.NewReader(data))
 	assert.NoError(t, err)
 
@@ -90,7 +90,7 @@ func TestUpdateApprovalTask(t *testing.T) {
 	err = json.NewDecoder(resp.Body).Decode(&approvalTask)
 	assert.NoError(t, err)
 
-	assert.Equal(t, "true", approvalTask.Data.Approved)
+	assert.Equal(t, "true", string(approvalTask.Data.Approved))
 }
 
 func TestUpdateApprovalTaskNotFound(t *testing.T) {

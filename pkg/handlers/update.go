@@ -19,8 +19,6 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"net/http"
-
 	"github.com/go-chi/chi/v5"
 	"github.com/openshift-pipelines/manual-approval-gate/pkg/apis/approvaltask/v1alpha1"
 	"github.com/openshift-pipelines/manual-approval-gate/pkg/handlers/app"
@@ -29,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
+	"net/http"
 )
 
 func UpdateApprovalTask(res http.ResponseWriter, req *http.Request, dynamicClient dynamic.Interface) {
@@ -85,12 +84,11 @@ func UpdateApprovalTask(res http.ResponseWriter, req *http.Request, dynamicClien
 		http.Error(res, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	at.Spec.Approved = requestBody.Approved
-
+	at.Spec.Approved = string(requestBody.Approved)
 	var approvalTaskStatus = &app.ApprovalTaskResult{
 		Data: app.ApprovalTask{
 			Name:     at.Name,
-			Approved: at.Spec.Approved,
+			Approved: app.BoolValue(at.Spec.Approved),
 		},
 	}
 

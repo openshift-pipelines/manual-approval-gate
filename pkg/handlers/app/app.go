@@ -17,7 +17,9 @@ limitations under the License.
 package app
 
 import (
+	"fmt"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"strings"
 )
 
 const (
@@ -34,10 +36,25 @@ var (
 	}
 )
 
+type BoolValue string
+
+func (bv *BoolValue) UnmarshalJSON(data []byte) error {
+	strVal := strings.Trim(string(data), "\"")
+	switch strVal {
+	case "true":
+		*bv = BoolValue("true")
+	case "false":
+		*bv = BoolValue("false")
+	default:
+		return fmt.Errorf("Invalid value: %s", strVal)
+	}
+	return nil
+}
+
 type ApprovalTask struct {
-	Name      string `json:"name"`
-	Namespace string `json:"namespace,omitempty"`
-	Approved  string `json:"approved"`
+	Name      string    `json:"name"`
+	Namespace string    `json:"namespace,omitempty"`
+	Approved  BoolValue `json:"approved"`
 }
 
 type ApprovalTaskList struct {
