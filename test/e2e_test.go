@@ -4,23 +4,20 @@
 package test
 
 import (
+	"context"
 	"encoding/json"
 	"io/ioutil"
-	"net/http"
-	"net/http/httptest"
 	"path/filepath"
-	"strings"
 	"testing"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/openshift-pipelines/manual-approval-gate/pkg/handlers"
-	"github.com/openshift-pipelines/manual-approval-gate/pkg/handlers/app"
 	"github.com/openshift-pipelines/manual-approval-gate/test/client"
 	"github.com/openshift-pipelines/manual-approval-gate/test/resources"
 	"github.com/stretchr/testify/assert"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"github.com/tektoncd/pipeline/pkg/client/clientset/versioned/scheme"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 func TestApproveManualApprovalTask(t *testing.T) {
@@ -54,31 +51,29 @@ func TestApproveManualApprovalTask(t *testing.T) {
 		}
 	})
 
-	t.Run("Update-the-approval-task", func(t *testing.T) {
-		r := chi.NewRouter()
-		r.Post("/approvaltask/{approvalTaskName}", func(w http.ResponseWriter, request *http.Request) {
-			handlers.UpdateApprovalTask(w, request, clients.Dynamic)
-		})
+	t.Run("Patch the approval task", func(t *testing.T) {
+		patchData := map[string]interface{}{
+			"spec": map[string]interface{}{
+				"approved": "true",
+			},
+		}
 
-		ts := httptest.NewServer(r)
-		defer ts.Close()
+		patch, err := json.Marshal(patchData)
+		if err != nil {
+			t.Fatal("Failed to update the approval task")
+		}
 
-		data := `{"approved":"true", "namespace":"default"}`
-		ep := "/approvaltask/" + cr.GetName()
-		resp, err := http.Post(ts.URL+ep, "application/json", strings.NewReader(data))
-		assert.NoError(t, err)
+		_, err = clients.ApprovalTaskClient.ApprovalTasks("default").Patch(context.TODO(), cr.GetName(), types.MergePatchType, patch, metav1.PatchOptions{})
+		if err != nil {
+			t.Fatal("Failed to patch the approval task", err)
+		}
 
-		defer resp.Body.Close()
-
-		assert.Equal(t, http.StatusOK, resp.StatusCode, "Expected HTTP status OK")
-
-		var approvalTask *app.ApprovalTaskResult
-		err = json.NewDecoder(resp.Body).Decode(&approvalTask)
-		assert.NoError(t, err)
-
-		assert.Equal(t, "true", string(approvalTask.Data.Approved))
+		approvalTask, err := clients.ApprovalTaskClient.ApprovalTasks("default").Get(context.TODO(), cr.GetName(), metav1.GetOptions{})
+		if err != nil {
+			t.Fatal("Failed to get the approval task")
+		}
+		assert.Equal(t, "true", approvalTask.Spec.Approved)
 	})
-
 }
 
 func TestDisApproveManualApprovalTask(t *testing.T) {
@@ -112,31 +107,29 @@ func TestDisApproveManualApprovalTask(t *testing.T) {
 		}
 	})
 
-	t.Run("Update-the-approval-task", func(t *testing.T) {
-		r := chi.NewRouter()
-		r.Post("/approvaltask/{approvalTaskName}", func(w http.ResponseWriter, request *http.Request) {
-			handlers.UpdateApprovalTask(w, request, clients.Dynamic)
-		})
+	t.Run("Patch the approval task", func(t *testing.T) {
+		patchData := map[string]interface{}{
+			"spec": map[string]interface{}{
+				"approved": "false",
+			},
+		}
 
-		ts := httptest.NewServer(r)
-		defer ts.Close()
+		patch, err := json.Marshal(patchData)
+		if err != nil {
+			t.Fatal("Failed to update the approval task")
+		}
 
-		data := `{"approved":"false", "namespace":"default"}`
-		ep := "/approvaltask/" + cr.GetName()
-		resp, err := http.Post(ts.URL+ep, "application/json", strings.NewReader(data))
-		assert.NoError(t, err)
+		_, err = clients.ApprovalTaskClient.ApprovalTasks("default").Patch(context.TODO(), cr.GetName(), types.MergePatchType, patch, metav1.PatchOptions{})
+		if err != nil {
+			t.Fatal("Failed to patch the approval task", err)
+		}
 
-		defer resp.Body.Close()
-
-		assert.Equal(t, http.StatusOK, resp.StatusCode, "Expected HTTP status OK")
-
-		var approvalTask *app.ApprovalTaskResult
-		err = json.NewDecoder(resp.Body).Decode(&approvalTask)
-		assert.NoError(t, err)
-
-		assert.Equal(t, "false", string(approvalTask.Data.Approved))
+		approvalTask, err := clients.ApprovalTaskClient.ApprovalTasks("default").Get(context.TODO(), cr.GetName(), metav1.GetOptions{})
+		if err != nil {
+			t.Fatal("Failed to get the approval task")
+		}
+		assert.Equal(t, "false", approvalTask.Spec.Approved)
 	})
-
 }
 
 func MustParseCustomRun(t *testing.T, yaml string) *v1beta1.CustomRun {
