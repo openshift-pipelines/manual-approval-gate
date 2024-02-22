@@ -48,3 +48,27 @@ func WaitForApprovalTaskCreation(client typedopenshiftpipelinesv1alpha1.Openshif
 
 	return lastState, nil
 }
+
+func WaitForApprovalTaskStatusUpdate(client typedopenshiftpipelinesv1alpha1.OpenshiftpipelinesV1alpha1Interface, name, desiredStatus string) (*v1alpha1.ApprovalTask, error) {
+	var approvalTask *v1alpha1.ApprovalTask
+
+	waitErr := wait.PollImmediate(Interval, Timeout, func() (done bool, err error) {
+		approvalTask, err = client.ApprovalTasks("default").Get(context.TODO(), name, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+
+		// Check if the ApprovalTask has reached the desired status
+		if approvalTask.Status.State == desiredStatus {
+			return true, nil
+		}
+
+		return false, nil
+	})
+
+	if waitErr != nil {
+		return nil, fmt.Errorf("error waiting for ApprovalTask %s to reach status %s: %w", name, desiredStatus, waitErr)
+	}
+
+	return approvalTask, nil
+}

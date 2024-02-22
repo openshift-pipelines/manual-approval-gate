@@ -46,6 +46,19 @@ const (
 
 	// approvaltaskRunLabelKey is the label identifier for a Run.  This label is added to the Run's TaskRuns.
 	approvaltaskRunLabelKey = "/run"
+
+	pendingState      = "pending"
+	approvedState     = "approved"
+	rejectedState     = "rejected"
+	hasApproved       = "approve"
+	hasRejected       = "reject"
+	allApprovers      = "approvers"
+	approvalsRequired = "numberOfApprovalsRequired"
+
+	// CustomRunLabelKey is used as the label identifier for a ApprovalTask
+	CustomRunLabelKey = "tekton.dev/customRun"
+
+	LastAppliedHashKey = "tekton.dev/last-applied-hash"
 )
 
 // Reconciler implements controller.Reconciler for Configuration resources.
@@ -135,40 +148,33 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, run *v1beta1.CustomRun) 
 }
 
 func (r *Reconciler) reconcile(ctx context.Context, run *v1beta1.CustomRun, status *approvaltaskv1alpha1.ApprovalTaskRunStatus) error {
-	logger := logging.FromContext(ctx)
-
 	// Get the ApprovalTask referenced by the Run
-	approvaltaskMeta, approvaltaskSpec, err := r.getOrCreateApprovalTask(ctx, run)
+	logger := logging.FromContext(ctx)
+	approvalTask, err := getOrCreateApprovalTask(ctx, r.approvaltaskClientSet, run)
 	if err != nil {
+		logger.Errorf("Error getting or creating the approval task: %v", err.Error())
 		return err
 	}
 
+	approvalTaskMeta := &approvalTask.ObjectMeta
+	approvalTaskSpec := approvalTask.Spec
+
 	// Store the fetched ApprovalTaskSpec on the Run for auditing
-	storeApprovalTaskSpec(status, approvaltaskSpec)
+	storeApprovalTaskSpec(status, &approvalTaskSpec)
 
 	// Propagate labels and annotations from ApprovalTask to Run.
-	propagateApprovalTaskLabelsAndAnnotations(run, approvaltaskMeta)
+	propagateApprovalTaskLabelsAndAnnotations(run, approvalTaskMeta)
 
 	// Validate ApprovalTask spec
-	if err := approvaltaskSpec.Validate(ctx); err != nil {
+	if err := approvalTaskSpec.Validate(ctx); err != nil {
 		run.Status.MarkCustomRunFailed(approvaltaskv1alpha1.ApprovalTaskRunReasonFailedValidation.String(),
 			"ApprovalTask %s/%s can't be Run; it has an invalid spec: %s",
-			approvaltaskMeta.Namespace, approvaltaskMeta.Name, err)
+			approvalTask.Namespace, approvalTask.Name, err)
 		return nil
 	}
 
-	switch approvaltaskSpec.Approved {
-	case "wait":
-		logger.Info("Approval task is in wait state")
-		return nil
-	case "false":
-		logger.Infof("Approval task %s is denied", approvaltaskSpec.Name)
-		run.Status.MarkCustomRunFailed(approvaltaskv1alpha1.ApprovalTaskRunReasonFailed.String(), "Approval Task denied")
-		return nil
-	case "true":
-		run.Status.MarkCustomRunSucceeded(approvaltaskv1alpha1.ApprovalTaskRunReasonSucceeded.String(),
-			"TaskRun succeeded")
-		return nil
+	if err := r.checkIfUpdateRequired(ctx, *approvalTask, run); err != nil {
+		return err
 	}
 
 	return nil
