@@ -40,6 +40,7 @@ type ApprovalTasksGetter interface {
 type ApprovalTaskInterface interface {
 	Create(ctx context.Context, approvalTask *v1alpha1.ApprovalTask, opts v1.CreateOptions) (*v1alpha1.ApprovalTask, error)
 	Update(ctx context.Context, approvalTask *v1alpha1.ApprovalTask, opts v1.UpdateOptions) (*v1alpha1.ApprovalTask, error)
+	UpdateStatus(ctx context.Context, approvalTask *v1alpha1.ApprovalTask, opts v1.UpdateOptions) (*v1alpha1.ApprovalTask, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
 	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.ApprovalTask, error)
@@ -128,6 +129,22 @@ func (c *approvalTasks) Update(ctx context.Context, approvalTask *v1alpha1.Appro
 		Namespace(c.ns).
 		Resource("approvaltasks").
 		Name(approvalTask.Name).
+		VersionedParams(&opts, scheme.ParameterCodec).
+		Body(approvalTask).
+		Do(ctx).
+		Into(result)
+	return
+}
+
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+func (c *approvalTasks) UpdateStatus(ctx context.Context, approvalTask *v1alpha1.ApprovalTask, opts v1.UpdateOptions) (result *v1alpha1.ApprovalTask, err error) {
+	result = &v1alpha1.ApprovalTask{}
+	err = c.client.Put().
+		Namespace(c.ns).
+		Resource("approvaltasks").
+		Name(approvalTask.Name).
+		SubResource("status").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(approvalTask).
 		Do(ctx).
