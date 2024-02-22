@@ -51,10 +51,23 @@ func TestApproveManualApprovalTask(t *testing.T) {
 		}
 	})
 
-	t.Run("Patch the approval task", func(t *testing.T) {
+	t.Run("patch-the-approval-task", func(t *testing.T) {
 		patchData := map[string]interface{}{
 			"spec": map[string]interface{}{
-				"approved": "true",
+				"approvers": []map[string]interface{}{
+					{
+						"input": "pending",
+						"name":  "foo",
+					},
+					{
+						"input": "pending",
+						"name":  "bar",
+					},
+					{
+						"input": "approve",
+						"name":  "tekton",
+					},
+				},
 			},
 		}
 
@@ -68,11 +81,45 @@ func TestApproveManualApprovalTask(t *testing.T) {
 			t.Fatal("Failed to patch the approval task", err)
 		}
 
+		patchData = map[string]interface{}{
+			"spec": map[string]interface{}{
+				"approvers": []map[string]interface{}{
+					{
+						"input": "pending",
+						"name":  "foo",
+					},
+					{
+						"input": "approve",
+						"name":  "bar",
+					},
+					{
+						"input": "approve",
+						"name":  "tekton",
+					},
+				},
+			},
+		}
+
+		patch, err = json.Marshal(patchData)
+		if err != nil {
+			t.Fatal("Failed to update the approval task")
+		}
+
+		_, err = clients.ApprovalTaskClient.ApprovalTasks("default").Patch(context.TODO(), cr.GetName(), types.MergePatchType, patch, metav1.PatchOptions{})
+		if err != nil {
+			t.Fatal("Failed to patch the approval task", err)
+		}
+
+		_, err = resources.WaitForApprovalTaskStatusUpdate(clients.ApprovalTaskClient, cr.GetName(), "approved")
+		if err != nil {
+			t.Fatal("Failed to get the approval task")
+		}
+
 		approvalTask, err := clients.ApprovalTaskClient.ApprovalTasks("default").Get(context.TODO(), cr.GetName(), metav1.GetOptions{})
 		if err != nil {
 			t.Fatal("Failed to get the approval task")
 		}
-		assert.Equal(t, "true", approvalTask.Spec.Approved)
+		assert.Equal(t, "approved", approvalTask.Status.State)
 	})
 }
 
@@ -107,10 +154,23 @@ func TestDisApproveManualApprovalTask(t *testing.T) {
 		}
 	})
 
-	t.Run("Patch the approval task", func(t *testing.T) {
+	t.Run("patch-the-approval-task", func(t *testing.T) {
 		patchData := map[string]interface{}{
 			"spec": map[string]interface{}{
-				"approved": "false",
+				"approvers": []map[string]interface{}{
+					{
+						"input": "pending",
+						"name":  "foo",
+					},
+					{
+						"input": "pending",
+						"name":  "bar",
+					},
+					{
+						"input": "reject",
+						"name":  "tekton",
+					},
+				},
 			},
 		}
 
@@ -124,11 +184,16 @@ func TestDisApproveManualApprovalTask(t *testing.T) {
 			t.Fatal("Failed to patch the approval task", err)
 		}
 
+		_, err = resources.WaitForApprovalTaskStatusUpdate(clients.ApprovalTaskClient, cr.GetName(), "rejected")
+		if err != nil {
+			t.Fatal("Failed to get the approval task")
+		}
+
 		approvalTask, err := clients.ApprovalTaskClient.ApprovalTasks("default").Get(context.TODO(), cr.GetName(), metav1.GetOptions{})
 		if err != nil {
 			t.Fatal("Failed to get the approval task")
 		}
-		assert.Equal(t, "false", approvalTask.Spec.Approved)
+		assert.Equal(t, "rejected", approvalTask.Status.State)
 	})
 }
 

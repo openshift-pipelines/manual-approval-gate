@@ -18,12 +18,11 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 // +genclient
-// +genclient:noStatus
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
 // ApprovalTask is a "wait for manual approval" Task.
 // +k8s:openapi-gen=true
 type ApprovalTask struct {
@@ -33,12 +32,30 @@ type ApprovalTask struct {
 
 	// Spec holds the desired state of the TaskGroup from the client
 	// +optional
-	Spec ApprovalTaskSpec `json:"spec"`
+	Spec   ApprovalTaskSpec   `json:"spec"`
+	Status ApprovalTaskStatus `json:"status"`
 }
 
 type ApprovalTaskSpec struct {
+	Approvers                 []ApproverDetails `json:"approvers"`
+	NumberOfApprovalsRequired int               `json:"numberOfApprovalsRequired"`
+}
+
+type ApproverDetails struct {
+	Name  string `json:"name"`
+	Input string `json:"input"`
+}
+
+type ApprovalTaskStatus struct {
+	duckv1.Status     `json:",inline"`
+	State             string          `json:"state"`
+	Approvers         []string        `json:"approvers,omitempty"`
+	ApproversResponse []ApproverState `json:"approversResponse,omitempty"`
+}
+
+type ApproverState struct {
 	Name     string `json:"name"`
-	Approved string `json:"approved"`
+	Response string `json:"response"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
