@@ -167,6 +167,15 @@ func (ac *reconciler) Admit(ctx context.Context, request *admissionv1.AdmissionR
 		}
 	}
 
+	if !checkIfMessageIsProvided(newObj, request.UserInfo.Username) {
+		return &admissionv1.AdmissionResponse{
+			Allowed: false,
+			Result: &metav1.Status{
+				Message: "Please provide some message",
+			},
+		}
+	}
+
 	patches, err := roundTripPatch(newBytes, newObj)
 	if err != nil {
 		// TODO(puneet) fix the logger
@@ -281,6 +290,17 @@ func checkApprovalsRequired(approvaltask v1alpha1.ApprovalTask) bool {
 	}
 	if len(approvaltask.Status.ApprovedBy) == approvaltask.Spec.ApprovalsRequired {
 		return false
+	}
+	return true
+}
+
+func checkIfMessageIsProvided(approvaltask v1alpha1.ApprovalTask, username string) bool {
+	for _, approval := range approvaltask.Spec.Approvals {
+		if approval.Name == username {
+			if approval.InputValue == "false" && approval.Message == "" {
+				return false
+			}
+		}
 	}
 	return true
 }

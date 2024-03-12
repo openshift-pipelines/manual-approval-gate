@@ -189,8 +189,9 @@ func TestDisApproveManualApprovalTask(t *testing.T) {
 						"name":  "bar",
 					},
 					{
-						"input": "false",
-						"name":  "tekton",
+						"input":   "false",
+						"name":    "tekton",
+						"message": "Fail the approvaltask",
 					},
 				},
 			},

@@ -256,22 +256,25 @@ func updateApprovalState(ctx context.Context, approvaltaskClientSet versioned.In
 
 	// Updating the approvedBy field in the status
 	// Temp map to hold current approvals with true and false input
-	currentApprovals := make(map[string]string)
+	currentApprovals := make(map[string]v1alpha1.Users)
 	approvalTask.Status.ApprovedBy = []v1alpha1.Users{}
 	// Populate the map with approvals having input true/false
 	for _, approval := range approvalTask.Spec.Approvals {
-		if approval.InputValue == "true" {
-			currentApprovals[approval.Name] = "true"
-		} else if approval.InputValue == "false" {
-			currentApprovals[approval.Name] = "false"
+		// if approval.InputValue == "true" {
+		// 	currentApprovals[approval.Name] = v1alpha1.Users{Name: approval.Name, Approved: "true", Message: approval.Message}
+		// } else if approval.InputValue == "false" {
+		// 	currentApprovals[approval.Name] = v1alpha1.Users{Name: approval.Name, Approved: "false", Message: approval.Message}
+		// }
+		if approval.InputValue == "true" || approval.InputValue == "false" {
+			currentApprovals[approval.Name] = v1alpha1.Users{Name: approval.Name, Approved: approval.InputValue, Message: approval.Message}
 		}
 	}
 
 	if len(currentApprovals) != 0 {
 		// Filter the ApprovedBy to only include those that are still true
 		filteredApprovedBy := []v1alpha1.Users{}
-		for name, value := range currentApprovals {
-			filteredApprovedBy = append(filteredApprovedBy, v1alpha1.Users{Name: name, Approved: value})
+		for _, userApproval := range currentApprovals {
+			filteredApprovedBy = append(filteredApprovedBy, userApproval)
 		}
 
 		// Update the ApprovedBy list
