@@ -42,6 +42,11 @@ bash ${REPO_ROOT_DIR}/hack/generate-groups.sh "deepcopy,client,informer,lister" 
   "approvaltask:v1alpha1" \
   --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
 
+${PREFIX}/deepcopy-gen \
+  -O zz_generated.deepcopy \
+  --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt \
+  -i github.com/openshift-pipelines/manual-approval-gate/pkg/apis/approvaltask/v1alpha
+
 # Knative Injection
 # This generates the knative injection packages for the resource package (v1alpha1).
 bash ${REPO_ROOT_DIR}/hack/generate-knative.sh "injection" \

@@ -138,34 +138,42 @@ func (r *Reconciler) reconcile(ctx context.Context, run *v1beta1.CustomRun, stat
 	logger := logging.FromContext(ctx)
 
 	// Get the ApprovalTask referenced by the Run
-	approvaltaskMeta, approvaltaskSpec, err := r.getOrCreateApprovalTask(ctx, run)
+	approvalTask, err := getOrCreateApprovalTask(ctx, r.approvaltaskClientSet, run)
 	if err != nil {
 		return err
 	}
 
+	approvalTaskMeta := &approvalTask.ObjectMeta
+	approvalTaskSpec := approvalTask.Spec
+
 	// Store the fetched ApprovalTaskSpec on the Run for auditing
-	storeApprovalTaskSpec(status, approvaltaskSpec)
+	storeApprovalTaskSpec(status, &approvalTaskSpec)
 
 	// Propagate labels and annotations from ApprovalTask to Run.
-	propagateApprovalTaskLabelsAndAnnotations(run, approvaltaskMeta)
+	propagateApprovalTaskLabelsAndAnnotations(run, approvalTaskMeta)
 
 	// Validate ApprovalTask spec
-	if err := approvaltaskSpec.Validate(ctx); err != nil {
+	if err := approvalTaskSpec.Validate(ctx); err != nil {
 		run.Status.MarkCustomRunFailed(approvaltaskv1alpha1.ApprovalTaskRunReasonFailedValidation.String(),
 			"ApprovalTask %s/%s can't be Run; it has an invalid spec: %s",
-			approvaltaskMeta.Namespace, approvaltaskMeta.Name, err)
+			approvalTask.Namespace, approvalTask.Name, err)
 		return nil
 	}
 
-	switch approvaltaskSpec.Approved {
+	if _, err := updateApprovalState(ctx, r.approvaltaskClientSet, approvalTask); err != nil {
+		return err
+	}
+
+	switch approvalTask.Status.ApprovalState {
 	case "wait":
 		logger.Info("Approval task is in wait state")
 		return nil
 	case "false":
-		logger.Infof("Approval task %s is denied", approvaltaskSpec.Name)
+		logger.Infof("Approval task %s is denied", approvalTaskMeta.Name)
 		run.Status.MarkCustomRunFailed(approvaltaskv1alpha1.ApprovalTaskRunReasonFailed.String(), "Approval Task denied")
 		return nil
 	case "true":
+		logger.Infof("Approval task %s is approved", approvalTaskMeta.Name)
 		run.Status.MarkCustomRunSucceeded(approvaltaskv1alpha1.ApprovalTaskRunReasonSucceeded.String(),
 			"TaskRun succeeded")
 		return nil

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	manualApprovalVersioned "github.com/openshift-pipelines/manual-approval-gate/pkg/client/clientset/versioned"
 	"github.com/openshift-pipelines/manual-approval-gate/test/client"
 	"github.com/openshift-pipelines/manual-approval-gate/test/resources"
 	"github.com/stretchr/testify/assert"
@@ -18,10 +19,21 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
 )
 
 func TestApproveManualApprovalTask(t *testing.T) {
 	clients := client.Setup(t, "default")
+
+	// Set the user as tekton
+	clients.Config.Impersonate = rest.ImpersonationConfig{
+		UserName: "tekton",
+	}
+	clientSet, err := manualApprovalVersioned.NewForConfig(clients.Config)
+	if err != nil {
+		t.Fatalf("Failed to set the user: %v", err)
+	}
+	clients.ApprovalTaskClient = clientSet.OpenshiftpipelinesV1alpha1()
 
 	taskRunPath, err := filepath.Abs("./testdata/customrun.yaml")
 	if err != nil {
@@ -51,10 +63,23 @@ func TestApproveManualApprovalTask(t *testing.T) {
 		}
 	})
 
-	t.Run("Patch the approval task", func(t *testing.T) {
+	t.Run("patch-the-approval-task", func(t *testing.T) {
 		patchData := map[string]interface{}{
 			"spec": map[string]interface{}{
-				"approved": "true",
+				"approvals": []map[string]interface{}{
+					{
+						"input": "wait",
+						"name":  "foo",
+					},
+					{
+						"input": "wait",
+						"name":  "bar",
+					},
+					{
+						"input": "true",
+						"name":  "tekton",
+					},
+				},
 			},
 		}
 
@@ -68,11 +93,55 @@ func TestApproveManualApprovalTask(t *testing.T) {
 			t.Fatal("Failed to patch the approval task", err)
 		}
 
+		patchData = map[string]interface{}{
+			"spec": map[string]interface{}{
+				"approvals": []map[string]interface{}{
+					{
+						"input": "wait",
+						"name":  "foo",
+					},
+					{
+						"input": "true",
+						"name":  "bar",
+					},
+					{
+						"input": "true",
+						"name":  "tekton",
+					},
+				},
+			},
+		}
+
+		patch, err = json.Marshal(patchData)
+		if err != nil {
+			t.Fatal("Failed to update the approval task")
+		}
+
+		// Set the user as bar
+		clients.Config.Impersonate = rest.ImpersonationConfig{
+			UserName: "bar",
+		}
+		clientSet, err := manualApprovalVersioned.NewForConfig(clients.Config)
+		if err != nil {
+			t.Fatalf("Failed to set the user: %v", err)
+		}
+		clients.ApprovalTaskClient = clientSet.OpenshiftpipelinesV1alpha1()
+
+		_, err = clients.ApprovalTaskClient.ApprovalTasks("default").Patch(context.TODO(), cr.GetName(), types.MergePatchType, patch, metav1.PatchOptions{})
+		if err != nil {
+			t.Fatal("Failed to patch the approval task", err)
+		}
+
+		_, err = resources.WaitForApprovalTaskStatusUpdate(clients.ApprovalTaskClient, cr.GetName(), "true")
+		if err != nil {
+			t.Fatal("Failed to get the approval task")
+		}
+
 		approvalTask, err := clients.ApprovalTaskClient.ApprovalTasks("default").Get(context.TODO(), cr.GetName(), metav1.GetOptions{})
 		if err != nil {
 			t.Fatal("Failed to get the approval task")
 		}
-		assert.Equal(t, "true", approvalTask.Spec.Approved)
+		assert.Equal(t, "true", approvalTask.Status.ApprovalState)
 	})
 }
 
@@ -107,10 +176,24 @@ func TestDisApproveManualApprovalTask(t *testing.T) {
 		}
 	})
 
-	t.Run("Patch the approval task", func(t *testing.T) {
+	t.Run("patch-the-approval-task", func(t *testing.T) {
 		patchData := map[string]interface{}{
 			"spec": map[string]interface{}{
-				"approved": "false",
+				"approvals": []map[string]interface{}{
+					{
+						"input": "wait",
+						"name":  "foo",
+					},
+					{
+						"input": "wait",
+						"name":  "bar",
+					},
+					{
+						"input":   "false",
+						"name":    "tekton",
+						"message": "Fail the approvaltask",
+					},
+				},
 			},
 		}
 
@@ -119,16 +202,31 @@ func TestDisApproveManualApprovalTask(t *testing.T) {
 			t.Fatal("Failed to update the approval task")
 		}
 
+		clients.Config.Impersonate = rest.ImpersonationConfig{
+			UserName: "tekton",
+		}
+
+		clientSet, err := manualApprovalVersioned.NewForConfig(clients.Config)
+		if err != nil {
+			t.Fatalf("Failed to set the user: %v", err)
+		}
+		clients.ApprovalTaskClient = clientSet.OpenshiftpipelinesV1alpha1()
+
 		_, err = clients.ApprovalTaskClient.ApprovalTasks("default").Patch(context.TODO(), cr.GetName(), types.MergePatchType, patch, metav1.PatchOptions{})
 		if err != nil {
 			t.Fatal("Failed to patch the approval task", err)
+		}
+
+		_, err = resources.WaitForApprovalTaskStatusUpdate(clients.ApprovalTaskClient, cr.GetName(), "false")
+		if err != nil {
+			t.Fatal("Failed to get the approval task")
 		}
 
 		approvalTask, err := clients.ApprovalTaskClient.ApprovalTasks("default").Get(context.TODO(), cr.GetName(), metav1.GetOptions{})
 		if err != nil {
 			t.Fatal("Failed to get the approval task")
 		}
-		assert.Equal(t, "false", approvalTask.Spec.Approved)
+		assert.Equal(t, "false", approvalTask.Status.ApprovalState)
 	})
 }
 
