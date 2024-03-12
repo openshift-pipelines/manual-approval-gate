@@ -102,6 +102,18 @@ func (c *FakeApprovalTasks) Update(ctx context.Context, approvalTask *v1alpha1.A
 	return obj.(*v1alpha1.ApprovalTask), err
 }
 
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+func (c *FakeApprovalTasks) UpdateStatus(ctx context.Context, approvalTask *v1alpha1.ApprovalTask, opts v1.UpdateOptions) (*v1alpha1.ApprovalTask, error) {
+	obj, err := c.Fake.
+		Invokes(testing.NewUpdateSubresourceAction(approvaltasksResource, "status", c.ns, approvalTask), &v1alpha1.ApprovalTask{})
+
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*v1alpha1.ApprovalTask), err
+}
+
 // Delete takes name of the approvalTask and deletes it. Returns an error if one occurs.
 func (c *FakeApprovalTasks) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.

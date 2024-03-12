@@ -9,3 +9,11 @@ spec:
   customRef:
     apiVersion: openshift-pipelines.org/v1alpha1
     kind: ApprovalTask
+  params:
+    - name: approvals
+      value:
+        - foo
+        - bar
+        - tekton
+    - name: approvalsRequired
+      value: 2

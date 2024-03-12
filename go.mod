@@ -3,7 +3,6 @@ module github.com/openshift-pipelines/manual-approval-gate
 go 1.18
 
 require (
-	github.com/go-chi/chi/v5 v5.0.10
 	github.com/hashicorp/errwrap v1.1.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/golang-lru v1.0.2
@@ -112,4 +111,11 @@ require (
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
+)
+
+replace (
+	k8s.io/api => k8s.io/api v0.26.7
+	k8s.io/apimachinery => k8s.io/apimachinery v0.26.7
+	k8s.io/client-go => k8s.io/client-go v0.26.7
+	k8s.io/code-generator => k8s.io/code-generator v0.26.7
 )

@@ -21,13 +21,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strconv"
 
 	"github.com/openshift-pipelines/manual-approval-gate/pkg/apis/approvaltask"
 	v1alpha1 "github.com/openshift-pipelines/manual-approval-gate/pkg/apis/approvaltask/v1alpha1"
+	"github.com/openshift-pipelines/manual-approval-gate/pkg/client/clientset/versioned"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"github.com/tektoncd/pipeline/pkg/reconciler/events"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/logging"
@@ -70,47 +73,33 @@ func initializeCustomRun(ctx context.Context, run *v1beta1.CustomRun) {
 	}
 }
 
-func (r *Reconciler) getOrCreateApprovalTask(ctx context.Context, run *v1beta1.CustomRun) (*metav1.ObjectMeta, *v1alpha1.ApprovalTaskSpec, error) {
-	logger := logging.FromContext(ctx)
-	approvalTaskMeta := metav1.ObjectMeta{}
-	approvalTaskSpec := v1alpha1.ApprovalTaskSpec{}
+func getOrCreateApprovalTask(ctx context.Context, approvaltaskClientSet versioned.Interface, run *v1beta1.CustomRun) (*v1alpha1.ApprovalTask, error) {
+	approvalTask := v1alpha1.ApprovalTask{}
 
 	if run.Spec.CustomRef != nil {
 		// Use the k8 client to get the ApprovalTask rather than the lister.  This avoids a timing issue where
 		// the ApprovalTask is not yet in the lister cache if it is created at nearly the same time as the Run.
 		// See https://github.com/tektoncd/pipeline/issues/2740 for discussion on this issue.
-		tl, err := r.approvaltaskClientSet.OpenshiftpipelinesV1alpha1().ApprovalTasks(run.Namespace).Get(ctx, run.Name, metav1.GetOptions{})
+		tl, err := approvaltaskClientSet.OpenshiftpipelinesV1alpha1().ApprovalTasks(run.Namespace).Get(ctx, run.Name, metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
-				approvalTask := &v1alpha1.ApprovalTask{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: run.Name,
-					},
-					Spec: v1alpha1.ApprovalTaskSpec{
-						Name:     run.Name,
-						Approved: "wait",
-					},
-				}
-
-				tl, err = r.approvaltaskClientSet.OpenshiftpipelinesV1alpha1().ApprovalTasks(run.Namespace).Create(ctx, approvalTask, metav1.CreateOptions{})
+				_, err := createApprovalTask(ctx, approvaltaskClientSet, run)
 				if err != nil {
-					return nil, nil, err
+					return nil, err
 				}
-				logger.Infof("Approval Task %s is created", approvalTask.Name)
 			}
 		}
-		approvalTaskMeta = tl.ObjectMeta
-		approvalTaskSpec = tl.Spec
+		approvalTask = *tl
 	} else if run.Spec.CustomSpec != nil {
 		// FIXME(openshift-pipelines) support embedded spec
-		if err := json.Unmarshal(run.Spec.CustomSpec.Spec.Raw, &approvalTaskSpec); err != nil {
+		if err := json.Unmarshal(run.Spec.CustomSpec.Spec.Raw, &approvalTask.Spec); err != nil {
 			run.Status.MarkCustomRunFailed(v1alpha1.ApprovalTaskRunReasonCouldntGetApprovalTask.String(),
 				"Error retrieving ApprovalTask for Run %s/%s: %s",
 				run.Namespace, run.Name, err)
-			return nil, nil, fmt.Errorf("Error retrieving ApprovalTask for Run %s: %w", fmt.Sprintf("%s/%s", run.Namespace, run.Name), err)
+			return nil, fmt.Errorf("Error retrieving ApprovalTask for Run %s: %w", fmt.Sprintf("%s/%s", run.Namespace, run.Name), err)
 		}
 	}
-	return &approvalTaskMeta, &approvalTaskSpec, nil
+	return &approvalTask, nil
 }
 
 func storeApprovalTaskSpec(status *v1alpha1.ApprovalTaskRunStatus, approvalTaskSpec *v1alpha1.ApprovalTaskSpec) {
@@ -160,4 +149,151 @@ func (c *Reconciler) updateLabelsAndAnnotations(ctx context.Context, run *v1beta
 		return err
 	}
 	return nil
+}
+
+func createApprovalTask(ctx context.Context, approvaltaskClientSet versioned.Interface, run *v1beta1.CustomRun) (v1alpha1.ApprovalTask, error) {
+	var (
+		approvals []v1alpha1.Input
+		users     []string
+		err       error
+	)
+
+	logger := logging.FromContext(ctx)
+	approvalsRequired := 1
+
+	for _, v := range run.Spec.Params {
+		var pa v1alpha1.Input
+
+		if v.Name == "approvals" {
+			for _, name := range v.Value.ArrayVal {
+				pa.Name = name
+				pa.InputValue = "wait"
+
+				approvals = append(approvals, pa)
+				users = append(users, name)
+			}
+		} else if v.Name == "approvalsRequired" {
+			tempApprovalsRequired, err := strconv.Atoi(v.Value.StringVal)
+			if err != nil {
+				return v1alpha1.ApprovalTask{}, err
+			}
+			approvalsRequired = tempApprovalsRequired
+		}
+	}
+
+	gvk := schema.GroupVersionKind{Group: "tekton.dev", Version: "v1beta1", Kind: "CustomRun"}
+	ownerRef := *metav1.NewControllerRef(run, gvk)
+
+	approvalTask := &v1alpha1.ApprovalTask{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            run.Name,
+			Namespace:       run.Namespace,
+			OwnerReferences: []metav1.OwnerReference{ownerRef},
+		},
+		Spec: v1alpha1.ApprovalTaskSpec{
+			Approvals:         approvals,
+			ApprovalsRequired: approvalsRequired,
+		},
+	}
+
+	_, err = approvaltaskClientSet.OpenshiftpipelinesV1alpha1().ApprovalTasks(run.Namespace).Create(ctx, approvalTask, metav1.CreateOptions{})
+	if err != nil {
+		return v1alpha1.ApprovalTask{}, err
+	}
+	logger.Infof("Approval Task %s is created", approvalTask.Name)
+
+	at, err := approvaltaskClientSet.OpenshiftpipelinesV1alpha1().ApprovalTasks(run.Namespace).Get(ctx, run.Name, metav1.GetOptions{})
+	if err != nil {
+		logger.Errorf("Error retrieving the created ApprovalTask %s: %v", run.Name, err)
+		return v1alpha1.ApprovalTask{}, err
+	}
+
+	status := v1alpha1.ApprovalTaskStatus{
+		ApprovalState: "wait",
+		Approvals:     users,
+		ApprovedBy:    []v1alpha1.Users{},
+	}
+
+	at.Status = status
+	_, err = approvaltaskClientSet.OpenshiftpipelinesV1alpha1().ApprovalTasks(run.Namespace).UpdateStatus(ctx, at, metav1.UpdateOptions{})
+	if err != nil {
+		return v1alpha1.ApprovalTask{}, err
+	}
+
+	return *at, nil
+}
+
+func approvalTaskHasFalseInput(approvalTask v1alpha1.ApprovalTask) bool {
+	for _, approval := range approvalTask.Spec.Approvals {
+		if approval.InputValue == "false" {
+			return true // Found an input that is "false"
+		}
+	}
+	return false
+}
+
+func approvalTaskHasTrueInput(approvalTask v1alpha1.ApprovalTask) bool {
+	// Count approvals with input "true"
+	// TODO: fix me
+	if approvalTask.Spec.ApprovalsRequired == 0 {
+		return false
+	}
+	count := 0
+	for _, approval := range approvalTask.Spec.Approvals {
+		if approval.InputValue == "true" {
+			count++
+		}
+	}
+
+	if count == approvalTask.Spec.ApprovalsRequired {
+		return true
+	}
+	return false
+}
+
+func updateApprovalState(ctx context.Context, approvaltaskClientSet versioned.Interface, approvalTask *v1alpha1.ApprovalTask) (v1alpha1.ApprovalTask, error) {
+	logger := logging.FromContext(ctx)
+
+	// Updating the approvedBy field in the status
+	// Temp map to hold current approvals with true and false input
+	currentApprovals := make(map[string]string)
+	approvalTask.Status.ApprovedBy = []v1alpha1.Users{}
+	// Populate the map with approvals having input true/false
+	for _, approval := range approvalTask.Spec.Approvals {
+		if approval.InputValue == "true" {
+			currentApprovals[approval.Name] = "true"
+		} else if approval.InputValue == "false" {
+			currentApprovals[approval.Name] = "false"
+		}
+	}
+
+	if len(currentApprovals) != 0 {
+		// Filter the ApprovedBy to only include those that are still true
+		filteredApprovedBy := []v1alpha1.Users{}
+		for name, value := range currentApprovals {
+			filteredApprovedBy = append(filteredApprovedBy, v1alpha1.Users{Name: name, Approved: value})
+		}
+
+		// Update the ApprovedBy list
+		approvalTask.Status.ApprovedBy = filteredApprovedBy
+
+		// Update the approvalState
+		// False scenario: Check if there is one false and if found mark the approvalstate to false
+		// True scenario: Check if the input value from the user is true and is equal to the approvalsRequired
+		if approvalTaskHasFalseInput(*approvalTask) {
+			approvalTask.Status.ApprovalState = "false"
+			logger.Infof("Approval task %s is denied", approvalTask.Name)
+		} else if approvalTaskHasTrueInput(*approvalTask) {
+			approvalTask.Status.ApprovalState = "true"
+		}
+
+		// Update the status finally
+		at, err := approvaltaskClientSet.OpenshiftpipelinesV1alpha1().ApprovalTasks(approvalTask.Namespace).UpdateStatus(ctx, approvalTask, metav1.UpdateOptions{})
+		if err != nil {
+			return v1alpha1.ApprovalTask{}, err
+		}
+		return *at, nil
+	}
+
+	return v1alpha1.ApprovalTask{}, nil
 }
