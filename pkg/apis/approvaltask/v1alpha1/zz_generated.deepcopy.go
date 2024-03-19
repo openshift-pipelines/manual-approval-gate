@@ -22,6 +22,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -122,6 +123,11 @@ func (in *ApprovalTaskSpec) DeepCopyInto(out *ApprovalTaskSpec) {
 		*out = make([]Input, len(*in))
 		copy(*out, *in)
 	}
+	if in.Timeout != nil {
+		in, out := &in.Timeout, &out.Timeout
+		*out = new(v1.Duration)
+		**out = **in
+	}
 	return
 }
 
@@ -148,6 +154,10 @@ func (in *ApprovalTaskStatus) DeepCopyInto(out *ApprovalTaskStatus) {
 		in, out := &in.ApprovedBy, &out.ApprovedBy
 		*out = make([]Users, len(*in))
 		copy(*out, *in)
+	}
+	if in.StartTime != nil {
+		in, out := &in.StartTime, &out.StartTime
+		*out = (*in).DeepCopy()
 	}
 	return
 }

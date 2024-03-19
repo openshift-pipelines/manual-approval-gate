@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"time"
 
 	"github.com/openshift-pipelines/manual-approval-gate/pkg/apis/approvaltask"
 	approvaltaskv1alpha1 "github.com/openshift-pipelines/manual-approval-gate/pkg/apis/approvaltask/v1alpha1"
@@ -164,6 +165,9 @@ func createApprovalTask(ctx context.Context, approvaltaskClientSet versioned.Int
 
 	logger := logging.FromContext(ctx)
 	approvalsRequired := 1
+	timeout := metav1.Duration{
+		Duration: 60 * time.Minute,
+	}
 
 	for _, v := range run.Spec.Params {
 		var pa v1alpha1.Input
@@ -182,6 +186,14 @@ func createApprovalTask(ctx context.Context, approvaltaskClientSet versioned.Int
 				return v1alpha1.ApprovalTask{}, err
 			}
 			approvalsRequired = tempApprovalsRequired
+		} else if v.Name == "timeout" {
+			duration, err := time.ParseDuration(v.Value.StringVal)
+			if err != nil {
+				return v1alpha1.ApprovalTask{}, err
+			}
+			timeout = metav1.Duration{
+				Duration: duration,
+			}
 		}
 	}
 
@@ -203,6 +215,7 @@ func createApprovalTask(ctx context.Context, approvaltaskClientSet versioned.Int
 		Spec: v1alpha1.ApprovalTaskSpec{
 			Approvals:         approvals,
 			ApprovalsRequired: approvalsRequired,
+			Timeout:           &timeout,
 		},
 	}
 

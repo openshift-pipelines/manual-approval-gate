@@ -17,7 +17,10 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/clock"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
@@ -38,8 +41,9 @@ type ApprovalTask struct {
 }
 
 type ApprovalTaskSpec struct {
-	Approvals         []Input `json:"approvals"`
-	ApprovalsRequired int     `json:"approvalsRequired"`
+	Approvals         []Input          `json:"approvals"`
+	ApprovalsRequired int              `json:"approvalsRequired"`
+	Timeout           *metav1.Duration `json:"timeout,omitempty"`
 }
 
 type Input struct {
@@ -57,6 +61,8 @@ type ApprovalTaskStatus struct {
 	ApprovalState string   `json:"approvalState"`
 	Approvals     []string `json:"approvals,omitempty"`
 	ApprovedBy    []Users  `json:"approvedBy,omitempty"`
+	// StartTime is the time the build is actually started.
+	StartTime *metav1.Time `json:"startTime,omitempty"`
 }
 
 type Users struct {
@@ -115,4 +121,18 @@ const (
 
 func (t ApprovalTaskRunReason) String() string {
 	return string(t)
+}
+
+func (at ApprovalTask) HasStarted() bool {
+	return at.Status.StartTime != nil
+}
+
+func (at ApprovalTask) ApprovalTaskHasTimedOut(ctx context.Context, c clock.PassiveClock) bool {
+	if at.Status.StartTime.IsZero() {
+		return false
+	}
+	timeout := at.Spec.Timeout.Duration
+	runtime := c.Since(at.Status.StartTime.Time)
+
+	return runtime > timeout
 }
