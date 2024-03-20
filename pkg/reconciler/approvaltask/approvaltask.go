@@ -19,6 +19,7 @@ package approvaltask
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"time"
 
@@ -34,8 +35,11 @@ import (
 	"github.com/tektoncd/pipeline/pkg/reconciler/events"
 	"go.uber.org/zap"
 	"gomodules.xyz/jsonpatch/v2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/utils/clock"
 	"knative.dev/pkg/apis"
+	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
 )
@@ -46,10 +50,16 @@ const (
 
 	// approvaltaskRunLabelKey is the label identifier for a Run.  This label is added to the Run's TaskRuns.
 	approvaltaskRunLabelKey = "/run"
+
+	// CustomRunLabelKey is used as the label identifier for a ApprovalTask
+	CustomRunLabelKey = "tekton.dev" + "/customRun"
+
+	LastAppliedHashKey = "tekton.dev/last-applied-hash"
 )
 
 // Reconciler implements controller.Reconciler for Configuration resources.
 type Reconciler struct {
+	Clock                 clock.PassiveClock
 	pipelineClientSet     clientset.Interface
 	kubeClientSet         kubernetes.Interface
 	approvaltaskClientSet approvaltaskclientset.Interface
@@ -111,7 +121,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, run *v1beta1.CustomRun) 
 
 	// Reconcile the Run
 	if err := c.reconcile(ctx, run, status); err != nil {
-		logger.Errorf("Reconcile error: %v", err.Error())
 		merr = multierror.Append(merr, err)
 		return merr
 	}
@@ -135,40 +144,53 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, run *v1beta1.CustomRun) 
 }
 
 func (r *Reconciler) reconcile(ctx context.Context, run *v1beta1.CustomRun, status *approvaltaskv1alpha1.ApprovalTaskRunStatus) error {
-	logger := logging.FromContext(ctx)
-
 	// Get the ApprovalTask referenced by the Run
-	approvaltaskMeta, approvaltaskSpec, err := r.getOrCreateApprovalTask(ctx, run)
+	at, err := getOrCreateApprovalTask(ctx, r.approvaltaskClientSet, run)
 	if err != nil {
 		return err
 	}
 
+	approvalTaskMeta := &at.ObjectMeta
+	approvalTaskSpec := at.Spec
+
 	// Store the fetched ApprovalTaskSpec on the Run for auditing
-	storeApprovalTaskSpec(status, approvaltaskSpec)
+	storeApprovalTaskSpec(status, &approvalTaskSpec)
 
 	// Propagate labels and annotations from ApprovalTask to Run.
-	propagateApprovalTaskLabelsAndAnnotations(run, approvaltaskMeta)
+	propagateApprovalTaskLabelsAndAnnotations(run, approvalTaskMeta)
 
 	// Validate ApprovalTask spec
-	if err := approvaltaskSpec.Validate(ctx); err != nil {
+	if err := approvalTaskSpec.Validate(ctx); err != nil {
 		run.Status.MarkCustomRunFailed(approvaltaskv1alpha1.ApprovalTaskRunReasonFailedValidation.String(),
 			"ApprovalTask %s/%s can't be Run; it has an invalid spec: %s",
-			approvaltaskMeta.Namespace, approvaltaskMeta.Name, err)
+			at.Namespace, at.Name, err)
 		return nil
 	}
 
-	switch approvaltaskSpec.Approved {
-	case "wait":
-		logger.Info("Approval task is in wait state")
+	if !at.HasStarted() {
+		at.Status.StartTime = &at.CreationTimestamp
+	}
+
+	if at.ApprovalTaskHasTimedOut(ctx, r.Clock) {
+		at.Status.ApprovalState = "false"
+		_, err := r.approvaltaskClientSet.OpenshiftpipelinesV1alpha1().ApprovalTasks(at.Namespace).UpdateStatus(ctx, at, metav1.UpdateOptions{})
+		if err != nil {
+			return err
+		}
+		message := fmt.Sprintf("Approval task %s is failed because of timeout", at.Name)
+		run.Status.MarkCustomRunFailed(approvaltaskv1alpha1.ApprovalTaskRunReasonFailed.String(), message)
 		return nil
-	case "false":
-		logger.Infof("Approval task %s is denied", approvaltaskSpec.Name)
-		run.Status.MarkCustomRunFailed(approvaltaskv1alpha1.ApprovalTaskRunReasonFailed.String(), "Approval Task denied")
-		return nil
-	case "true":
-		run.Status.MarkCustomRunSucceeded(approvaltaskv1alpha1.ApprovalTaskRunReasonSucceeded.String(),
-			"TaskRun succeeded")
-		return nil
+	}
+
+	if err := r.checkIfUpdateRequired(ctx, *at, run); err != nil {
+		return err
+	}
+
+	if at.Status.StartTime != nil {
+		elapsed := r.Clock.Since(at.Status.StartTime.Time)
+		timeout := at.Spec.Timeout.Duration
+		waitTime := timeout - elapsed
+		return controller.NewRequeueAfter(waitTime)
 	}
 
 	return nil

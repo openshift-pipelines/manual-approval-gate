@@ -17,13 +17,15 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/clock"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 // +genclient
-// +genclient:noStatus
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
 // ApprovalTask is a "wait for manual approval" Task.
 // +k8s:openapi-gen=true
 type ApprovalTask struct {
@@ -33,10 +35,37 @@ type ApprovalTask struct {
 
 	// Spec holds the desired state of the TaskGroup from the client
 	// +optional
-	Spec ApprovalTaskSpec `json:"spec"`
+	Spec   ApprovalTaskSpec   `json:"spec"`
+	Params []Param            `json:"params,omitempty"`
+	Status ApprovalTaskStatus `json:"status"`
 }
 
 type ApprovalTaskSpec struct {
+	Approvals         []Input          `json:"approvals"`
+	ApprovalsRequired int              `json:"approvalsRequired"`
+	Timeout           *metav1.Duration `json:"timeout,omitempty"`
+}
+
+type Input struct {
+	Name       string `json:"name"`
+	InputValue string `json:"input"`
+}
+
+type Param struct {
+	Name  string   `json:"name,omitempty"`
+	Value []string `json:"value,omitempty"`
+}
+
+type ApprovalTaskStatus struct {
+	duckv1.Status `json:",inline"`
+	ApprovalState string   `json:"approvalState"`
+	Approvals     []string `json:"approvals,omitempty"`
+	ApprovedBy    []Users  `json:"approvedBy,omitempty"`
+	// StartTime is the time the build is actually started.
+	StartTime *metav1.Time `json:"startTime,omitempty"`
+}
+
+type Users struct {
 	Name     string `json:"name"`
 	Approved string `json:"approved"`
 }
@@ -92,4 +121,18 @@ const (
 
 func (t ApprovalTaskRunReason) String() string {
 	return string(t)
+}
+
+func (at ApprovalTask) HasStarted() bool {
+	return at.Status.StartTime != nil
+}
+
+func (at ApprovalTask) ApprovalTaskHasTimedOut(ctx context.Context, c clock.PassiveClock) bool {
+	if at.Status.StartTime.IsZero() {
+		return false
+	}
+	timeout := at.Spec.Timeout.Duration
+	runtime := c.Since(at.Status.StartTime.Time)
+
+	return runtime > timeout
 }
