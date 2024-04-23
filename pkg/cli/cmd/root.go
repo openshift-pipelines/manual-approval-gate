@@ -18,9 +18,7 @@ func Root(p cli.Params) *cobra.Command {
 		PersistentPreRunE: flags.PersistentPreRunE(p),
 	}
 
-	c.AddCommand(list.Root(p))
-
-	flags.AddOptions(c)
+	c.AddCommand(list.Command(p))
 
 	return c
 }

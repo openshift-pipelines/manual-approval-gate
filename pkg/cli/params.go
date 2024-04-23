@@ -2,8 +2,8 @@ package cli
 
 import (
 	"github.com/openshift-pipelines/manual-approval-gate/pkg/client/clientset/versioned"
-	approvaltaskv1alpha1 "github.com/openshift-pipelines/manual-approval-gate/pkg/client/clientset/versioned/typed/approvaltask/v1alpha1"
 	"github.com/pkg/errors"
+	"k8s.io/client-go/dynamic"
 	k8s "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -11,7 +11,8 @@ import (
 
 type Clients struct {
 	Kube         k8s.Interface
-	ApprovalTask approvaltaskv1alpha1.OpenshiftpipelinesV1alpha1Interface
+	Dynamic      dynamic.Interface
+	ApprovalTask versioned.Interface
 }
 
 type ApprovalTaskParams struct {
@@ -62,13 +63,22 @@ func (p *ApprovalTaskParams) kubeClient(config *rest.Config) (k8s.Interface, err
 	return k8scs, nil
 }
 
-func (p *ApprovalTaskParams) approvalTaskClient(config *rest.Config) (approvaltaskv1alpha1.OpenshiftpipelinesV1alpha1Interface, error) {
+func (p *ApprovalTaskParams) dynamicClient(config *rest.Config) (dynamic.Interface, error) {
+	dynamicClient, err := dynamic.NewForConfig(config)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create dynamic client from config")
+
+	}
+	return dynamicClient, err
+}
+
+func (p *ApprovalTaskParams) approvalTaskClient(config *rest.Config) (versioned.Interface, error) {
 	approvalClient, err := versioned.NewForConfig(config)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create dynamic client from config")
 
 	}
-	return approvalClient.OpenshiftpipelinesV1alpha1(), err
+	return approvalClient, err
 }
 
 func (p *ApprovalTaskParams) config() (*rest.Config, error) {
@@ -135,6 +145,11 @@ func (p *ApprovalTaskParams) Clients(cfg ...*rest.Config) (*Clients, error) {
 		return nil, err
 	}
 
+	dynamicClient, err := p.dynamicClient(config)
+	if err != nil {
+		return nil, err
+	}
+
 	approvalClient, err := p.approvalTaskClient(config)
 	if err != nil {
 		return nil, err
@@ -143,6 +158,7 @@ func (p *ApprovalTaskParams) Clients(cfg ...*rest.Config) (*Clients, error) {
 	p.clients = &Clients{
 		Kube:         kube,
 		ApprovalTask: approvalClient,
+		Dynamic:      dynamicClient,
 	}
 
 	return p.clients, nil

@@ -1,0 +1,4 @@
+NAME     NumberOfApprovalsRequired   PendingApprovals   Rejected   STATUS
+mango    2                           1                  1          Rejected
+apple    2                           0                  0          Approved
+banana   2                           2                  0          Pending
