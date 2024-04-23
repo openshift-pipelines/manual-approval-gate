@@ -1,23 +1,28 @@
 package list
 
 import (
-	"context"
 	"fmt"
 	"log"
-	"os"
 	"text/tabwriter"
 	"text/template"
 
 	"github.com/fatih/color"
+	"github.com/openshift-pipelines/manual-approval-gate/pkg/actions"
 	"github.com/openshift-pipelines/manual-approval-gate/pkg/apis/approvaltask/v1alpha1"
 	cli "github.com/openshift-pipelines/manual-approval-gate/pkg/cli"
+	"github.com/openshift-pipelines/manual-approval-gate/pkg/cli/flags"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 type ListOptions struct {
 	AllNamespaces bool
 }
+
+var (
+	taskGroupResource = schema.GroupVersionResource{Group: "openshift-pipelines.org", Resource: "approvaltasks"}
+)
 
 var ConditionColor = map[string]color.Attribute{
 	"Rejected": color.FgHiRed,
@@ -25,8 +30,14 @@ var ConditionColor = map[string]color.Attribute{
 	"Pending":  color.FgHiBlue,
 }
 
-const listTemplate = `NAME	NumberOfApprovalsRequired	PendingApprovals	Rejected	STATUS{{range .ApprovalTasks.Items}}
-{{.Name}}	{{.Spec.NumberOfApprovalsRequired}}	{{pendingApprovals .}}	{{rejected .}}	{{state .}}{{end}}
+const listTemplate = `{{- $at := len .ApprovalTasks.Items }}{{ if eq $at 0 -}}
+No ApprovalTasks found
+{{else -}}
+NAME	NumberOfApprovalsRequired	PendingApprovals	Rejected	STATUS
+{{range .ApprovalTasks.Items -}}
+{{.Name}}	{{.Spec.NumberOfApprovalsRequired}}	{{pendingApprovals .}}	{{rejected .}}	{{state .}}
+{{end}}
+{{- end -}}
 `
 
 func pendingApprovals(at *v1alpha1.ApprovalTask) int {
@@ -61,7 +72,7 @@ func state(at *v1alpha1.ApprovalTask) string {
 	return ColorStatus(state)
 }
 
-func Root(p cli.Params) *cobra.Command {
+func Command(p cli.Params) *cobra.Command {
 	opts := &ListOptions{}
 	funcMap := template.FuncMap{
 		"pendingApprovals": pendingApprovals,
@@ -76,11 +87,11 @@ func Root(p cli.Params) *cobra.Command {
 		Annotations: map[string]string{
 			"commandType": "main",
 		},
-		Run: func(cmd *cobra.Command, args []string) {
+		PersistentPreRunE: flags.PersistentPreRunE(p),
+		RunE: func(cmd *cobra.Command, args []string) error {
 			cs, err := p.Clients()
 			if err != nil {
-				fmt.Println("Error getting clients:", err)
-				return
+				return err
 			}
 
 			ns := p.Namespace()
@@ -88,10 +99,9 @@ func Root(p cli.Params) *cobra.Command {
 				ns = ""
 			}
 
-			at, err := cs.ApprovalTask.ApprovalTasks(ns).List(context.TODO(), metav1.ListOptions{})
-			if err != nil {
-				fmt.Println("Failed to list the approval tasks:", err)
-				return
+			var at *v1alpha1.ApprovalTaskList
+			if err := actions.List(taskGroupResource, cs, metav1.ListOptions{}, ns, &at); err != nil {
+				return fmt.Errorf("failed to list Tasks from namespace %s: %v", ns, err)
 			}
 
 			var data = struct {
@@ -100,16 +110,23 @@ func Root(p cli.Params) *cobra.Command {
 				ApprovalTasks: at,
 			}
 
-			t, err := template.New("List Approvaltask").Funcs(funcMap).Parse(listTemplate)
+			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 5, 3, ' ', tabwriter.TabIndent)
+			t := template.Must(template.New("List ApprovalTasks").Funcs(funcMap).Parse(listTemplate))
 
-			w := tabwriter.NewWriter(os.Stdout, 8, 8, 8, ' ', 0)
+			if err != nil {
+				return err
+			}
+
 			if err := t.Execute(w, data); err != nil {
 				log.Fatal(err)
+				return err
 			}
-			w.Flush()
+
+			return w.Flush()
 
 		},
 	}
+	flags.AddOptions(c)
 
 	c.Flags().BoolVarP(&opts.AllNamespaces, "all-namespaces", "A", opts.AllNamespaces, "list Tasks from all namespaces")
 
