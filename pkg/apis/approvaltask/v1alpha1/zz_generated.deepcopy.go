@@ -142,6 +142,10 @@ func (in *ApprovalTaskStatus) DeepCopyInto(out *ApprovalTaskStatus) {
 		*out = make([]ApproverState, len(*in))
 		copy(*out, *in)
 	}
+	if in.StartTime != nil {
+		in, out := &in.StartTime, &out.StartTime
+		*out = (*in).DeepCopy()
+	}
 	return
 }
 

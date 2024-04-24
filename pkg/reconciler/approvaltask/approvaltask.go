@@ -19,6 +19,7 @@ package approvaltask
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"time"
 
@@ -34,8 +35,11 @@ import (
 	"github.com/tektoncd/pipeline/pkg/reconciler/events"
 	"go.uber.org/zap"
 	"gomodules.xyz/jsonpatch/v2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/utils/clock"
 	"knative.dev/pkg/apis"
+	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
 )
@@ -63,6 +67,7 @@ const (
 
 // Reconciler implements controller.Reconciler for Configuration resources.
 type Reconciler struct {
+	clock                 clock.PassiveClock
 	pipelineClientSet     clientset.Interface
 	kubeClientSet         kubernetes.Interface
 	approvaltaskClientSet approvaltaskclientset.Interface
@@ -173,8 +178,33 @@ func (r *Reconciler) reconcile(ctx context.Context, run *v1beta1.CustomRun, stat
 		return nil
 	}
 
+	if !approvalTask.HasStarted() {
+		approvalTask.Status.StartTime = &approvalTask.CreationTimestamp
+	}
+
+	timeout := run.Spec.Timeout
+	if timeout == nil {
+		timeout = &metav1.Duration{Duration: time.Duration(60) * time.Minute}
+	}
+	if approvalTask.ApprovalTaskHasTimedOut(ctx, r.clock, timeout.Duration) {
+		approvalTask.Status.State = "false"
+		_, err := r.approvaltaskClientSet.OpenshiftpipelinesV1alpha1().ApprovalTasks(approvalTask.Namespace).UpdateStatus(ctx, approvalTask, metav1.UpdateOptions{})
+		if err != nil {
+			return err
+		}
+		message := fmt.Sprintf("Approval task %s is failed because of timeout", approvalTask.Name)
+		run.Status.MarkCustomRunFailed(approvaltaskv1alpha1.ApprovalTaskRunReasonFailed.String(), message)
+		return nil
+	}
+
 	if err := r.checkIfUpdateRequired(ctx, *approvalTask, run); err != nil {
 		return err
+	}
+
+	if approvalTask.Status.StartTime != nil {
+		elapsed := r.clock.Since(approvalTask.Status.StartTime.Time)
+		waitTime := timeout.Duration - elapsed
+		return controller.NewRequeueAfter(waitTime)
 	}
 
 	return nil

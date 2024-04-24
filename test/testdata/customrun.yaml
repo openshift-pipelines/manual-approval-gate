@@ -5,7 +5,6 @@ metadata:
   namespace: default
 spec:
   retries: 2
-  timeout: 10s
   customRef:
     apiVersion: openshift-pipelines.org/v1alpha1
     kind: ApprovalTask

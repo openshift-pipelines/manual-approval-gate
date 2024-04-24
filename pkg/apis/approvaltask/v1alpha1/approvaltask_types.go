@@ -17,7 +17,11 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
+	"time"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/clock"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
@@ -51,6 +55,8 @@ type ApprovalTaskStatus struct {
 	State             string          `json:"state"`
 	Approvers         []string        `json:"approvers,omitempty"`
 	ApproversResponse []ApproverState `json:"approversResponse,omitempty"`
+	// StartTime is the time the build is actually started.
+	StartTime *metav1.Time `json:"startTime,omitempty"`
 }
 
 type ApproverState struct {
@@ -109,4 +115,17 @@ const (
 
 func (t ApprovalTaskRunReason) String() string {
 	return string(t)
+}
+
+func (at ApprovalTask) HasStarted() bool {
+	return at.Status.StartTime != nil
+}
+
+func (at ApprovalTask) ApprovalTaskHasTimedOut(ctx context.Context, c clock.PassiveClock, timeout time.Duration) bool {
+	if at.Status.StartTime.IsZero() {
+		return false
+	}
+	runtime := c.Since(at.Status.StartTime.Time)
+
+	return runtime > timeout
 }
