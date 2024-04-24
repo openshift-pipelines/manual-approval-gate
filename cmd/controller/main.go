@@ -22,6 +22,7 @@ import (
 	"github.com/openshift-pipelines/manual-approval-gate/pkg/apis/approvaltask/v1alpha1"
 	"github.com/openshift-pipelines/manual-approval-gate/pkg/reconciler/approvaltask"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/clock"
 	filteredinformerfactory "knative.dev/pkg/client/injection/kube/informers/factory/filtered"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
@@ -45,6 +46,6 @@ func main() {
 	ctx := injection.WithNamespaceScope(signals.NewContext(), *namespace)
 	ctx = filteredinformerfactory.WithSelectors(ctx, v1alpha1.ManagedByLabelKey)
 	sharedmain.MainWithConfig(ctx, ControllerLogKey, cfg,
-		approvaltask.NewController(),
+		approvaltask.NewController(clock.RealClock{}),
 	)
 }

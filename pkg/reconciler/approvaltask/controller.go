@@ -27,6 +27,7 @@ import (
 	customrunreconciler "github.com/tektoncd/pipeline/pkg/client/injection/reconciler/pipeline/v1beta1/customrun"
 	pipelinecontroller "github.com/tektoncd/pipeline/pkg/controller"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/utils/clock"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -34,7 +35,7 @@ import (
 )
 
 // NewController instantiates a new controller.Impl from knative.dev/pkg/controller
-func NewController() func(context.Context, configmap.Watcher) *controller.Impl {
+func NewController(clock clock.PassiveClock) func(context.Context, configmap.Watcher) *controller.Impl {
 	return func(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 
 		logger := logging.FromContext(ctx)
@@ -45,6 +46,7 @@ func NewController() func(context.Context, configmap.Watcher) *controller.Impl {
 		approvaltaskInformer := approvaltaskinformer.Get(ctx)
 
 		c := &Reconciler{
+			clock:                 clock,
 			kubeClientSet:         kubeclientset,
 			pipelineClientSet:     pipelineclientset,
 			approvaltaskClientSet: approvaltaskclientset,
