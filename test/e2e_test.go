@@ -55,9 +55,8 @@ func TestApproveManualApprovalTask(t *testing.T) {
 		}
 	})
 
-	// Test if TektonConfig can reach the READY status
 	t.Run("ensure-approval-task-creation", func(t *testing.T) {
-		_, err := resources.WaitForApprovalTaskCreation(clients.ApprovalTaskClient, cr.GetName())
+		_, err := resources.WaitForApprovalTaskCreation(clients.ApprovalTaskClient, cr.GetName(), cr.GetNamespace())
 		if err != nil {
 			t.Fatal("Failed to get the approval task")
 		}
@@ -132,7 +131,7 @@ func TestApproveManualApprovalTask(t *testing.T) {
 			t.Fatal("Failed to patch the approval task", err)
 		}
 
-		_, err = resources.WaitForApprovalTaskStatusUpdate(clients.ApprovalTaskClient, cr.GetName(), "approved")
+		_, err = resources.WaitForApprovalTaskStatusUpdate(clients.ApprovalTaskClient, cr, "approved")
 		if err != nil {
 			t.Fatal("Failed to get the approval task")
 		}
@@ -170,7 +169,7 @@ func TestRejectManualApprovalTask(t *testing.T) {
 
 	// Test if TektonConfig can reach the READY status
 	t.Run("ensure-approval-task-creation", func(t *testing.T) {
-		_, err := resources.WaitForApprovalTaskCreation(clients.ApprovalTaskClient, cr.GetName())
+		_, err := resources.WaitForApprovalTaskCreation(clients.ApprovalTaskClient, cr.GetName(), cr.GetNamespace())
 		if err != nil {
 			t.Fatal("Failed to get the approval task")
 		}
@@ -216,7 +215,7 @@ func TestRejectManualApprovalTask(t *testing.T) {
 			t.Fatal("Failed to patch the approval task", err)
 		}
 
-		_, err = resources.WaitForApprovalTaskStatusUpdate(clients.ApprovalTaskClient, cr.GetName(), "rejected")
+		_, err = resources.WaitForApprovalTaskStatusUpdate(clients.ApprovalTaskClient, cr, "rejected")
 		if err != nil {
 			t.Fatal("Failed to get the approval task")
 		}
@@ -254,7 +253,7 @@ func TestValidateUserUpdateOwnApprovalStatus(t *testing.T) {
 
 	// Test if TektonConfig can reach the READY status
 	t.Run("ensure-approval-task-creation", func(t *testing.T) {
-		_, err := resources.WaitForApprovalTaskCreation(clients.ApprovalTaskClient, cr.GetName())
+		_, err := resources.WaitForApprovalTaskCreation(clients.ApprovalTaskClient, cr.GetName(), cr.GetNamespace())
 		if err != nil {
 			t.Fatal("Failed to get the approval task")
 		}
@@ -327,7 +326,7 @@ func TestValidateUserDoesNotExists(t *testing.T) {
 
 	// Test if TektonConfig can reach the READY status
 	t.Run("ensure-approval-task-creation", func(t *testing.T) {
-		_, err := resources.WaitForApprovalTaskCreation(clients.ApprovalTaskClient, cr.GetName())
+		_, err := resources.WaitForApprovalTaskCreation(clients.ApprovalTaskClient, cr.GetName(), cr.GetNamespace())
 		if err != nil {
 			t.Fatal("Failed to get the approval task")
 		}
@@ -400,7 +399,7 @@ func TestValidateApprovalTaskHasReachedFinalState(t *testing.T) {
 
 	// Test if TektonConfig can reach the READY status
 	t.Run("ensure-approval-task-creation", func(t *testing.T) {
-		_, err := resources.WaitForApprovalTaskCreation(clients.ApprovalTaskClient, cr.GetName())
+		_, err := resources.WaitForApprovalTaskCreation(clients.ApprovalTaskClient, cr.GetName(), cr.GetNamespace())
 		if err != nil {
 			t.Fatal("Failed to get the approval task")
 		}
@@ -446,7 +445,7 @@ func TestValidateApprovalTaskHasReachedFinalState(t *testing.T) {
 			t.Fatal("Failed to patch the approval task", err)
 		}
 
-		_, err = resources.WaitForApprovalTaskStatusUpdate(clients.ApprovalTaskClient, cr.GetName(), "rejected")
+		_, err = resources.WaitForApprovalTaskStatusUpdate(clients.ApprovalTaskClient, cr, "rejected")
 		if err != nil {
 			t.Fatal("Failed to get the approval task")
 		}
