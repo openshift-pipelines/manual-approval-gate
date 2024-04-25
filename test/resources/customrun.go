@@ -32,10 +32,10 @@ func EnsureCustomTaskRunExists(client pipelinev1beta1.TektonV1beta1Interface, cu
 	return cr, err
 }
 
-func WaitForApprovalTaskCreation(client typedopenshiftpipelinesv1alpha1.OpenshiftpipelinesV1alpha1Interface, name string) (*v1alpha1.ApprovalTask, error) {
+func WaitForApprovalTaskCreation(client typedopenshiftpipelinesv1alpha1.OpenshiftpipelinesV1alpha1Interface, name, namespace string) (*v1alpha1.ApprovalTask, error) {
 	var lastState *v1alpha1.ApprovalTask
 	waitErr := wait.PollImmediate(Interval, Timeout, func() (done bool, err error) {
-		_, err = client.ApprovalTasks("default").Get(context.TODO(), name, metav1.GetOptions{})
+		_, err = client.ApprovalTasks(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
 			return false, nil
 		}
@@ -49,11 +49,11 @@ func WaitForApprovalTaskCreation(client typedopenshiftpipelinesv1alpha1.Openshif
 	return lastState, nil
 }
 
-func WaitForApprovalTaskStatusUpdate(client typedopenshiftpipelinesv1alpha1.OpenshiftpipelinesV1alpha1Interface, name, desiredStatus string) (*v1alpha1.ApprovalTask, error) {
+func WaitForApprovalTaskStatusUpdate(client typedopenshiftpipelinesv1alpha1.OpenshiftpipelinesV1alpha1Interface, cr *v1beta1.CustomRun, desiredStatus string) (*v1alpha1.ApprovalTask, error) {
 	var approvalTask *v1alpha1.ApprovalTask
 
 	waitErr := wait.PollImmediate(Interval, Timeout, func() (done bool, err error) {
-		approvalTask, err = client.ApprovalTasks("default").Get(context.TODO(), name, metav1.GetOptions{})
+		approvalTask, err = client.ApprovalTasks(cr.GetNamespace()).Get(context.TODO(), cr.GetName(), metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -67,7 +67,7 @@ func WaitForApprovalTaskStatusUpdate(client typedopenshiftpipelinesv1alpha1.Open
 	})
 
 	if waitErr != nil {
-		return nil, fmt.Errorf("error waiting for ApprovalTask %s to reach status %s: %w", name, desiredStatus, waitErr)
+		return nil, fmt.Errorf("error waiting for ApprovalTask %s to reach status %s: %w", cr.GetName(), desiredStatus, waitErr)
 	}
 
 	return approvalTask, nil
