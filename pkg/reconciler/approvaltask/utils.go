@@ -163,6 +163,7 @@ func createApprovalTask(ctx context.Context, approvaltaskClientSet versioned.Int
 	var (
 		approvers      []v1alpha1.ApproverDetails
 		users          []string
+		desc           string
 		err            error
 		approverExists = make(map[string]bool)
 		userExists     = make(map[string]bool)
@@ -194,6 +195,8 @@ func createApprovalTask(ctx context.Context, approvaltaskClientSet versioned.Int
 				return v1alpha1.ApprovalTask{}, err
 			}
 			numberOfApprovalsRequired = tempApproversRequired
+		} else if v.Name == description {
+			desc = v.Value.StringVal
 		}
 	}
 
@@ -214,6 +217,7 @@ func createApprovalTask(ctx context.Context, approvaltaskClientSet versioned.Int
 		Spec: v1alpha1.ApprovalTaskSpec{
 			Approvers:                 approvers,
 			NumberOfApprovalsRequired: numberOfApprovalsRequired,
+			Description:               desc,
 		},
 	}
 

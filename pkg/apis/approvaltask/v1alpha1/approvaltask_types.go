@@ -43,6 +43,7 @@ type ApprovalTask struct {
 type ApprovalTaskSpec struct {
 	Approvers                 []ApproverDetails `json:"approvers"`
 	NumberOfApprovalsRequired int               `json:"numberOfApprovalsRequired"`
+	Description               string            `json:"description,omitempty"`
 }
 
 type ApproverDetails struct {
