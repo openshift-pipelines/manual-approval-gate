@@ -310,22 +310,30 @@ func (r *Reconciler) checkIfUpdateRequired(ctx context.Context, approvalTask v1a
 func updateApprovalState(ctx context.Context, approvaltaskClientSet versioned.Interface, approvalTask *v1alpha1.ApprovalTask) (v1alpha1.ApprovalTask, error) {
 	// Updating the approvedBy field in the status
 	// Temp map to hold current approvers with approve and reject input
-	currentApprovers := make(map[string]string)
+	currentApprovers := make(map[string]v1alpha1.ApproverState)
 	approvalTask.Status.ApproversResponse = []v1alpha1.ApproverState{}
 	// Populate the map with approvers having input approve/reject
 	for _, approver := range approvalTask.Spec.Approvers {
-		if approver.Input == hasApproved {
-			currentApprovers[approver.Name] = approvedState
-		} else if approver.Input == hasRejected {
-			currentApprovers[approver.Name] = rejectedState
+		if approver.Input == hasApproved || approver.Input == hasRejected {
+			response := ""
+			if approver.Input == hasApproved {
+				response = approvedState
+			} else if approver.Input == hasRejected {
+				response = rejectedState
+			}
+			currentApprovers[approver.Name] = v1alpha1.ApproverState{
+				Name:     approver.Name,
+				Response: response,
+				Message:  approver.Message,
+			}
 		}
 	}
 
 	if len(currentApprovers) != 0 {
 		// Filter the ApprovedBy to only include those that are still true
 		filteredApprovedBy := []v1alpha1.ApproverState{}
-		for name, value := range currentApprovers {
-			filteredApprovedBy = append(filteredApprovedBy, v1alpha1.ApproverState{Name: name, Response: value})
+		for _, approver := range currentApprovers {
+			filteredApprovedBy = append(filteredApprovedBy, approver)
 		}
 
 		// Update the ApprovedBy list
