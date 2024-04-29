@@ -58,6 +58,7 @@ const (
 	hasRejected       = "reject"
 	allApprovers      = "approvers"
 	approvalsRequired = "numberOfApprovalsRequired"
+	description       = "description"
 
 	// CustomRunLabelKey is used as the label identifier for a ApprovalTask
 	CustomRunLabelKey = "tekton.dev/customRun"
