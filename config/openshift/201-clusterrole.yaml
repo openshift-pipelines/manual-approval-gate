@@ -94,10 +94,6 @@ rules:
     # When there are changes to the configs or secrets, knative updates the validatingwebhook config
     # with the updated certificates or the refreshed set of rules.
     verbs: ["get", "list", "update", "patch", "watch"]
-  - apiGroups: ["policy"]
-    resources: ["podsecuritypolicies"]
-    resourceNames: ["openshift-pipelines"]
-    verbs: ["use"]
   - apiGroups: [ "openshift-pipelines.org" ]
     resources: [ "approvaltasks" ]
     verbs: [ "get", "list", "create", "update", "delete", "patch", "watch" ]
