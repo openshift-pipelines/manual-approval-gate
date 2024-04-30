@@ -36,6 +36,8 @@ buildImageAndGenerateReleaseYaml() {
       return 1
     }
 
+    sed -i "s/version: \"devel\"/version: \"$RELEASE_VERSION\"/g" release-kubernetes.yaml
+
     echo "============================================="
     info Creating Manual Approval Gate Release Yaml for Openshift
     echo "------------------------------------------"
@@ -43,6 +45,8 @@ buildImageAndGenerateReleaseYaml() {
           err 'release build failed'
           return 1
     }
+
+    sed -i "s/version: \"devel\"/version: \"$RELEASE_VERSION\"/g" release-openshift.yaml
 
     echo "------------------------------------------"
 }
