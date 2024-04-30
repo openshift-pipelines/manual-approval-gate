@@ -1,6 +1,6 @@
 module github.com/openshift-pipelines/manual-approval-gate
 
-go 1.18
+go 1.21
 
 require (
 	github.com/hashicorp/errwrap v1.1.0
