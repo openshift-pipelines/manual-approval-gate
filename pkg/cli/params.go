@@ -1,15 +1,23 @@
 package cli
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/openshift-pipelines/manual-approval-gate/pkg/client/clientset/versioned"
+	userv1typedclient "github.com/openshift/client-go/user/clientset/versioned/typed/user/v1"
 	"github.com/pkg/errors"
+	v1 "k8s.io/api/authentication/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 	k8s "k8s.io/client-go/kubernetes"
+	authenticationv1client "k8s.io/client-go/kubernetes/typed/authentication/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
 type Clients struct {
+	Config       *rest.Config
 	Kube         k8s.Interface
 	Dynamic      dynamic.Interface
 	ApprovalTask versioned.Interface
@@ -20,6 +28,15 @@ type ApprovalTaskParams struct {
 	kubeConfigPath string
 	kubeContext    string
 	namespace      string
+}
+
+type Options struct {
+	Namespace     string
+	Name          string
+	Input         string
+	Username      string
+	Message       string
+	AllNamespaces bool
 }
 
 type Params interface {
@@ -33,6 +50,7 @@ type Params interface {
 	KubeClient() (k8s.Interface, error)
 	Clients(...*rest.Config) (*Clients, error)
 	Namespace() string
+	GetUserInfo() (string, error)
 }
 
 // ensure that TektonParams complies with cli.Params interface
@@ -48,6 +66,25 @@ func (p *ApprovalTaskParams) SetKubeContext(context string) {
 
 func (p *ApprovalTaskParams) Namespace() string {
 	return p.namespace
+}
+
+func (p *ApprovalTaskParams) GetUserInfo() (string, error) {
+	authV1Client, err := authenticationv1client.NewForConfig(p.clients.Config)
+	if err != nil {
+		return "", err
+	}
+
+	userInterface, err := userv1typedclient.NewForConfig(p.clients.Config)
+	if err != nil {
+		return "", err
+	}
+
+	// Get username
+	username, err := getUserInfo(authV1Client, userInterface)
+	if err != nil {
+		return "", err
+	}
+	return username, err
 }
 
 func (p *ApprovalTaskParams) SetNamespace(ns string) {
@@ -156,10 +193,30 @@ func (p *ApprovalTaskParams) Clients(cfg ...*rest.Config) (*Clients, error) {
 	}
 
 	p.clients = &Clients{
+		Config:       config,
 		Kube:         kube,
 		ApprovalTask: approvalClient,
 		Dynamic:      dynamicClient,
 	}
 
 	return p.clients, nil
+}
+
+func getUserInfo(authV1Client *authenticationv1client.AuthenticationV1Client, userInterface userv1typedclient.UserV1Interface) (string, error) {
+	var username string
+	res, err := authV1Client.SelfSubjectReviews().Create(context.TODO(), &v1.SelfSubjectReview{}, metav1.CreateOptions{})
+	if err == nil {
+		username = res.Status.UserInfo.Username
+		return username, nil
+	} else {
+		fmt.Errorf("selfsubjectreview request error %v, falling back to user object", err)
+	}
+
+	user, err := userInterface.Users().Get(context.TODO(), "~", metav1.GetOptions{})
+	if err != nil {
+		return "", nil
+	}
+	username = user.Name
+
+	return username, nil
 }
