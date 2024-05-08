@@ -188,7 +188,7 @@ func (r *Reconciler) reconcile(ctx context.Context, run *v1beta1.CustomRun, stat
 		timeout = &metav1.Duration{Duration: time.Duration(60) * time.Minute}
 	}
 	if approvalTask.ApprovalTaskHasTimedOut(ctx, r.clock, timeout.Duration) {
-		approvalTask.Status.State = "false"
+		approvalTask.Status.State = rejectedState
 		_, err := r.approvaltaskClientSet.OpenshiftpipelinesV1alpha1().ApprovalTasks(approvalTask.Namespace).UpdateStatus(ctx, approvalTask, metav1.UpdateOptions{})
 		if err != nil {
 			return err
