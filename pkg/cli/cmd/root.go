@@ -3,6 +3,7 @@ package cmd
 import (
 	cli "github.com/openshift-pipelines/manual-approval-gate/pkg/cli"
 	"github.com/openshift-pipelines/manual-approval-gate/pkg/cli/cmd/approve"
+	"github.com/openshift-pipelines/manual-approval-gate/pkg/cli/cmd/describe"
 	"github.com/openshift-pipelines/manual-approval-gate/pkg/cli/cmd/list"
 	"github.com/openshift-pipelines/manual-approval-gate/pkg/cli/flags"
 	"github.com/spf13/cobra"
@@ -21,6 +22,7 @@ func Root(p cli.Params) *cobra.Command {
 
 	c.AddCommand(list.Command(p))
 	c.AddCommand(approve.Command(p))
+	c.AddCommand(describe.Command(p))
 
 	return c
 }
