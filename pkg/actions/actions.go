@@ -48,6 +48,20 @@ func list(gr schema.GroupVersionResource, dynamic dynamic.Interface, discovery d
 	return allRes, nil
 }
 
+func Get(gr schema.GroupVersionResource, c *cli.Clients, opts *cli.Options) (*v1alpha1.ApprovalTask, error) {
+	gvr, err := GetGroupVersionResource(gr, c.ApprovalTask.Discovery())
+	if err != nil {
+		return nil, err
+	}
+
+	at, err := get(gvr, c, opts)
+	if err != nil {
+		return &v1alpha1.ApprovalTask{}, err
+	}
+
+	return at, nil
+}
+
 func get(gvr *schema.GroupVersionResource, c *cli.Clients, opts *cli.Options) (*v1alpha1.ApprovalTask, error) {
 	result, err := c.Dynamic.Resource(*gvr).Namespace(opts.Namespace).Get(context.Background(), opts.Name, metav1.GetOptions{})
 	if err != nil {
