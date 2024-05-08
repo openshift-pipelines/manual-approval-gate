@@ -5,6 +5,7 @@ networking:
   apiServerPort: 8443
 nodes:
 - role: control-plane
+  image: kindest/node:v1.28.0
   kubeadmConfigPatches:
   - |
     kind: InitConfiguration

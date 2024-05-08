@@ -68,7 +68,5 @@ func Command(p cli.Params) *cobra.Command {
 
 	flags.AddOptions(c)
 
-	c.Flags().BoolVarP(&opts.AllNamespaces, "all-namespaces", "A", opts.AllNamespaces, "list Tasks from all namespaces")
-
 	return c
 }

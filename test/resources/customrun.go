@@ -72,3 +72,35 @@ func WaitForApprovalTaskStatusUpdate(client typedopenshiftpipelinesv1alpha1.Open
 
 	return approvalTask, nil
 }
+
+func WaitForApproverResponseUpdate(client typedopenshiftpipelinesv1alpha1.OpenshiftpipelinesV1alpha1Interface, cr *v1beta1.CustomRun, name, response string) (*v1alpha1.ApprovalTask, error) {
+	var approvalTask *v1alpha1.ApprovalTask
+
+	waitErr := wait.PollImmediate(Interval, Timeout, func() (done bool, err error) {
+		approvalTask, err = client.ApprovalTasks(cr.GetNamespace()).Get(context.TODO(), cr.GetName(), metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+
+		if containsApprover(approvalTask.Status.ApproversResponse, name, response) {
+			return true, nil
+		}
+
+		return false, nil
+	})
+
+	if waitErr != nil {
+		return nil, fmt.Errorf("error waiting for ApprovalTask %s to reach status %s: %w", cr.GetName(), name, waitErr)
+	}
+
+	return approvalTask, nil
+}
+
+func containsApprover(approvers []v1alpha1.ApproverState, name string, response string) bool {
+	for _, approver := range approvers {
+		if approver.Name == name && approver.Response == response {
+			return true
+		}
+	}
+	return false
+}

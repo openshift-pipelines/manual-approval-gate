@@ -139,8 +139,7 @@ func TestApproveApprovalTask(t *testing.T) {
 			command:        command(t, approvaltasks, ns, dc, "tekton"),
 			args:           []string{"at-3", "-n", "test"},
 			expectedOutput: fmt.Sprintf("Error: failed to approve approvalTask from namespace %s: approvaltasks.openshift-pipelines.org \"%s\" not found\n", "test", "at-3"),
-
-			wantError: true,
+			wantError:      true,
 		},
 	}
 
