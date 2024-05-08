@@ -123,11 +123,16 @@ main() {
   echo "Running CLI e2e tests"
   kubectl create ns test-1
   kubectl create ns test-2
+  kubectl create ns test-3
+
   go build -o tkn-approvaltask github.com/openshift-pipelines/manual-approval-gate/cmd/tkn-approvaltask
   export TEST_CLIENT_BINARY="${PWD}/tkn-approvaltask"
+
   go test -v -count=1 -tags=e2e -timeout=20m ./test/cli/... ${KUBECONFIG_PARAM} || fail_test "E2E test failed....."
 
   kubectl delete ns test-1
+  kubectl delete ns test-2
+  kubectl delete ns test-3
 
   success
 }
