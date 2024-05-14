@@ -37,7 +37,7 @@ You can refer the ApprovalTask in the pipeline similar to how we refer Task toda
 * Users can add timeout to the approvalTask
 * As of today once the timeout exceeds, approvalTask state is marked as rejected and correspondingly customrun and pipelinerun will be failed
 * Users can add messages while approving/rejecting the approvalTask
-
+* `tkn-approvaltask` CLI for managing approvaltasks
 
 ### Installation
 
