@@ -64,16 +64,16 @@ NOTE:- You need to install [tektoncd/pipeline](https://github.com/tektoncd/pipel
 As of today only `"approve"` and `"reject"` are supported. If user passes the approval as `"approve"` then pipeline will proceed to execute the further tasks and if `"reject"` is provided then in that case it will fail the pipeline_
 
 
-3. Now `approve/reject` the approval task by using `kubectl edit` command by updating the `input` field under `approvers` section fo your username
+3. Once the approvaltask is created, you can use `tkn-approvaltask` CLI to list and describe the approvaltask
 
-  To get the approvalTask name you can use this command
+    ```shell
+   tkn-approvaltask list       ---> 👈🏻 To list the approvaltask
+   tkn-approvaltask describe   ---> 👈🏻 To describe the approvaltask
+   ```
 
-  ```bash
-  kubectl get approvaltask
-  ```
+4. Now `approve/reject` the approvaltask using `tkn-approvaltask` plugin
 
-   **NOTE** :- If you are using a kind cluster and you need to approve/reject for that particular user then in that case you can run the following command
-
-   ```bash
-    kubectl edit approvaltask <approvalTaskname> --as=<username>
+    ```shell
+   tkn-approvaltask approve    ---> 👈🏻 To approve the approvaltask
+   tkn-approvaltask reject     ---> 👈🏻 To reject the approvaltask
    ```
