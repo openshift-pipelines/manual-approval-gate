@@ -8,7 +8,7 @@ import (
 var ConditionColor = map[string]color.Attribute{
 	"Rejected": color.FgHiRed,
 	"Approved": color.FgHiGreen,
-	"Pending":  color.FgHiBlue,
+	"Pending":  color.FgHiYellow,
 }
 
 func ColorStatus(status string) string {
