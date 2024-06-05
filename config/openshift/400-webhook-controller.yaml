@@ -21,7 +21,7 @@ metadata:
 
 ---
 apiVersion: admissionregistration.k8s.io/v1
-kind: MutatingWebhookConfiguration
+kind: ValidatingWebhookConfiguration
 metadata:
   name: webhook.manual.approval.dev
 webhooks:
