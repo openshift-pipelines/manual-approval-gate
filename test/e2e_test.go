@@ -296,7 +296,7 @@ func TestValidateUserUpdateOwnApprovalStatus(t *testing.T) {
 
 		_, err = clients.ApprovalTaskClient.ApprovalTasks("default").Patch(context.TODO(), cr.GetName(), types.MergePatchType, patch, metav1.PatchOptions{})
 
-		errMsg := `admission webhook "webhook.manual.approval.dev" denied the request: User can only update their own approval input`
+		errMsg := `admission webhook "validation.webhook.manual-approval.openshift-pipelines.org" denied the request: User can only update their own approval input`
 		assert.Equal(t, errMsg, err.Error())
 	})
 }
@@ -369,7 +369,7 @@ func TestValidateUserDoesNotExists(t *testing.T) {
 
 		_, err = clients.ApprovalTaskClient.ApprovalTasks("default").Patch(context.TODO(), cr.GetName(), types.MergePatchType, patch, metav1.PatchOptions{})
 
-		errMsg := `admission webhook "webhook.manual.approval.dev" denied the request: User does not exist in the in the approval list`
+		errMsg := `admission webhook "validation.webhook.manual-approval.openshift-pipelines.org" denied the request: User does not exist in the in the approval list`
 		assert.Equal(t, errMsg, err.Error())
 	})
 }
@@ -481,7 +481,7 @@ func TestValidateApprovalTaskHasReachedFinalState(t *testing.T) {
 		}
 
 		_, err = clients.ApprovalTaskClient.ApprovalTasks("default").Patch(context.TODO(), cr.GetName(), types.MergePatchType, patch, metav1.PatchOptions{})
-		errMsg := `admission webhook "webhook.manual.approval.dev" denied the request: ApprovalTask has already reached it's final state`
+		errMsg := `admission webhook "validation.webhook.manual-approval.openshift-pipelines.org" denied the request: ApprovalTask has already reached it's final state`
 		assert.Equal(t, errMsg, err.Error())
 	})
 }
