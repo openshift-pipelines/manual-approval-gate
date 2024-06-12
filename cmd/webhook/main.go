@@ -38,7 +38,7 @@ func getEnvOrDefault(key, defaultValue string) string {
 func main() {
 	serviceName := getEnvOrDefault("WEBHOOK_SERVICE_NAME", "manual-approval-webhook")
 	secretName := getEnvOrDefault("WEBHOOK_SECRET_NAME", "manual-approval-gate-webhook-certs")
-	webhookName := getEnvOrDefault("WEBHOOK_ADMISSION_CONTROLLER_NAME", "webhook.manual.approval.dev")
+	webhookName := getEnvOrDefault("WEBHOOK_ADMISSION_CONTROLLER_NAME", "validation.webhook.manual-approval.openshift-pipelines.org")
 
 	systemNamespace := os.Getenv("SYSTEM_NAMESPACE")
 	// Scope informers to the webhook's namespace instead of cluster-wide
