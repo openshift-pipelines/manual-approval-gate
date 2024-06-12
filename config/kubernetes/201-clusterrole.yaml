@@ -89,7 +89,7 @@ rules:
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["validatingwebhookconfigurations"]
     # validation.webhook.approvaltask.openshift.org performs schema validation when you, for example, create TaskLoops.
-    resourceNames: ["webhook.manual.approval.dev"]
+    resourceNames: ["validation.webhook.manual-approval.openshift-pipelines.org"]
     # When there are changes to the configs or secrets, knative updates the validatingwebhook config
     # with the updated certificates or the refreshed set of rules.
     verbs: ["get", "list", "update", "patch", "watch"]
