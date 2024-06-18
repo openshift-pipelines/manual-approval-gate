@@ -42,7 +42,7 @@ jobs:
     - uses: actions/setup-go@v5
       with:
         go-version: 1.21
-    - uses: imjasonh/setup-ko@v0.6
+    - uses: imjasonh/setup-ko@v0.7
     - uses: actions/checkout@v4
     - uses: actions/cache@v4
       with:
@@ -86,6 +86,6 @@ jobs:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-    - uses: imjasonh/setup-ko@v0.6
+    - uses: imjasonh/setup-ko@v0.7
     - run: |
         ko publish --push=${{ github.event_name != 'pull_request' }} --base-import-paths ./cmd/controller
