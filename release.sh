@@ -31,7 +31,7 @@ getReleaseVersion() {
 buildImageAndGenerateReleaseYaml() {
   	info Creating Manual Approval Gate Release Yaml for Kubernetes
   	echo "------------------------------------------"
-    ko resolve -f config/kubernetes -t ${RELEASE_VERSION} > release-kubernetes.yaml || {
+    ko resolve --platform=linux/amd64,linux/s390x,linux/ppc64le,linux/arm64 -f config/kubernetes -t ${RELEASE_VERSION} > release-kubernetes.yaml || {
       err 'release build failed'
       return 1
     }
@@ -41,7 +41,7 @@ buildImageAndGenerateReleaseYaml() {
     echo "============================================="
     info Creating Manual Approval Gate Release Yaml for Openshift
     echo "------------------------------------------"
-    ko resolve -f config/openshift -t ${RELEASE_VERSION} > release-openshift.yaml || {
+    ko resolve --platform=linux/amd64,linux/s390x,linux/ppc64le,linux/arm64 -f config/openshift -t ${RELEASE_VERSION} > release-openshift.yaml || {
           err 'release build failed'
           return 1
     }
