@@ -3,12 +3,12 @@
 apiVersion: appstudio.redhat.com/v1beta2
 kind: IntegrationTestScenario
 metadata:
-  name: manual-approval-gate-next-enterprise-contract
+  name: manual-approval-gate-next-enterprise-contract-group
 spec:
   application: manual-approval-gate-next
   contexts:
     - description: Application testing
-      name: application
+      name: group
   params:
     - name: POLICY_CONFIGURATION
       value: tekton-ecosystem-tenant/tekton-ecosystem-tenant-containers
