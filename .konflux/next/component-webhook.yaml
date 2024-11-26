@@ -15,4 +15,4 @@ spec:
     git:
       url: https://github.com/openshift-pipelines/manual-approval-gate
       dockerfileUrl: .konflux/dockerfiles/webhook.Dockerfile
-      revision: next
+      revision: release-v0.4.0
