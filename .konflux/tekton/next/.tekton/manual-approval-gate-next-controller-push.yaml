@@ -8,14 +8,14 @@ metadata:
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/max-keep-runs: "3"
     pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch
-      == "main" &&
+      == "release-v0.4.0" &&
       ("upstream/***".pathChanged() || ".konflux/patches/***".pathChanged() || ".konflux/rpms/***".pathChanged() ||
       ".konflux/dockerfiles/controller.Dockerfile".pathChanged() ||
       ".tekton/manual-approval-gate-next-controller-push.yaml".pathChanged() ||
       ".tekton/docker-build-ta.yaml".pathChanged())
   creationTimestamp: null
   labels:
-    appstudio.openshift.io/application: manual-approval-gate-release-v0.4.0
+    appstudio.openshift.io/application: manual-approval-gate-next
     appstudio.openshift.io/component: manual-approval-gate-next-controller
     pipelines.appstudio.openshift.io/type: build
   name: manual-approval-gate-next-controller-on-push
@@ -27,7 +27,7 @@ spec:
   - name: revision
     value: '{{revision}}'
   - name: output-image
-    value: quay.io/redhat-user-workloads/tekton-ecosystem-tenant/manual-approval-gate-release-v0-4-0/controller:{{revision}}
+    value: quay.io/redhat-user-workloads/tekton-ecosystem-tenant/manual-approval-gate-next/controller:{{revision}}
   - name: dockerfile
     value: .konflux/dockerfiles/controller.Dockerfile
   - name: build-platforms
