@@ -9,7 +9,6 @@ metadata:
   name: manual-approval-gate-next-rp
 spec:
   application: manual-approval-gate-next
-  target: tekton-ecosystem-tenant
   tenantPipeline:
     serviceAccountName: release-registry-openshift-pipelines-next
     pipelineRef:
