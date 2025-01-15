@@ -3,6 +3,8 @@ apiVersion: tekton.dev/v1
 kind: PipelineRun
 metadata:
   annotations:
+    pipelinesascode.tekton.dev/cancel-in-progress: "true" # Cancel in-progress pipelines
+    pipelinesascode.tekton.dev/pipeline: "https://raw.githubusercontent.com/openshift-pipelines/operator/refs/heads/main/.tekton/docker-build-ta.yaml"
     build.appstudio.openshift.io/repo: https://github.com/openshift-pipelines/manual-approval-gate?rev={{revision}}
     build.appstudio.redhat.com/commit_sha: '{{revision}}'
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
@@ -11,8 +13,7 @@ metadata:
       == "main" &&
       ("***".pathChanged() ||
       ".konflux/dockerfiles/webhook.Dockerfile".pathChanged() ||
-      ".tekton/manual-approval-gate-main-webhook-push.yaml".pathChanged() ||
-      ".tekton/docker-build-ta.yaml".pathChanged())
+      ".tekton/manual-approval-gate-main-webhook-push.yaml".pathChanged())
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: manual-approval-gate-main
@@ -38,14 +39,7 @@ spec:
     value: |
       {"type": "rpm", "path": ".konflux/rpms"}
   pipelineRef:
-    resolver: git
-    params:
-      - name: url
-        value: https://github.com/openshift-pipelines/operator.git
-      - name: revision
-        value: main
-      - name: pathInRepo
-        value: .tekton/docker-build-ta.yaml
+    name: docker-build-ta
   workspaces:
   - name: git-auth
     secret:
