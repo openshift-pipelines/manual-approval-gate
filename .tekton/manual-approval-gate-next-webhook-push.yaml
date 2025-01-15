@@ -3,22 +3,24 @@ apiVersion: tekton.dev/v1
 kind: PipelineRun
 metadata:
   annotations:
+    pipelinesascode.tekton.dev/cancel-in-progress: "true" # Cancel in-progress pipelines
+    pipelinesascode.tekton.dev/pipeline: "https://raw.githubusercontent.com/openshift-pipelines/operator/refs/heads/next/.tekton/docker-build-ta.yaml"
     build.appstudio.openshift.io/repo: https://github.com/openshift-pipelines/manual-approval-gate?rev={{revision}}
     build.appstudio.redhat.com/commit_sha: '{{revision}}'
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/max-keep-runs: "3"
     pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch
-      == "main" &&
-      ("***".pathChanged() ||
+      == "release-v0.4.0" &&
+      ("upstream/***".pathChanged() || ".konflux/patches/***".pathChanged() || ".konflux/rpms/***".pathChanged() ||
       ".konflux/dockerfiles/webhook.Dockerfile".pathChanged() ||
-      ".tekton/manual-approval-gate-main-webhook-push.yaml".pathChanged() ||
+      ".tekton/manual-approval-gate-next-webhook-push.yaml".pathChanged() ||
       ".tekton/docker-build-ta.yaml".pathChanged())
   creationTimestamp: null
   labels:
-    appstudio.openshift.io/application: manual-approval-gate-main
-    appstudio.openshift.io/component: manual-approval-gate-main-webhook
+    appstudio.openshift.io/application: manual-approval-gate-next
+    appstudio.openshift.io/component: manual-approval-gate-next-webhook
     pipelines.appstudio.openshift.io/type: build
-  name: manual-approval-gate-main-webhook-on-push
+  name: manual-approval-gate-next-webhook-on-push
   namespace: tekton-ecosystem-tenant
 spec:
   params:
@@ -27,7 +29,7 @@ spec:
   - name: revision
     value: '{{revision}}'
   - name: output-image
-    value: quay.io/redhat-user-workloads/tekton-ecosystem-tenant/manual-approval-gate-main/webhook:{{revision}}
+    value: quay.io/redhat-user-workloads/tekton-ecosystem-tenant/manual-approval-gate-next/webhook:{{revision}}
   - name: dockerfile
     value: .konflux/dockerfiles/webhook.Dockerfile
   - name: build-platforms
@@ -38,14 +40,7 @@ spec:
     value: |
       {"type": "rpm", "path": ".konflux/rpms"}
   pipelineRef:
-    resolver: git
-    params:
-      - name: url
-        value: https://github.com/openshift-pipelines/operator.git
-      - name: revision
-        value: main
-      - name: pathInRepo
-        value: .tekton/docker-build-ta.yaml
+    name: docker-build-ta
   workspaces:
   - name: git-auth
     secret:
