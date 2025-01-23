@@ -3,23 +3,24 @@ apiVersion: tekton.dev/v1
 kind: PipelineRun
 metadata:
   annotations:
+    pipelinesascode.tekton.dev/cancel-in-progress: "true" # Cancel in-progress pipelines
+    pipelinesascode.tekton.dev/pipeline: "https://raw.githubusercontent.com/openshift-pipelines/operator/refs/heads/next/.tekton/docker-build-ta.yaml"
     build.appstudio.openshift.io/repo: https://github.com/openshift-pipelines/manual-approval-gate?rev={{revision}}
     build.appstudio.redhat.com/commit_sha: '{{revision}}'
     build.appstudio.redhat.com/pull_request_number: '{{pull_request_number}}'
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/max-keep-runs: "3"
     pipelinesascode.tekton.dev/on-cel-expression: event == "pull_request" && target_branch
-      == "main" &&
-      ("***".pathChanged() ||
-      ".konflux/dockerfiles/webhook.Dockerfile".pathChanged() ||
-      ".tekton/manual-approval-gate-main-webhook-pull-request.yaml".pathChanged() ||
-      ".tekton/docker-build-ta.yaml".pathChanged())
+      == "release-v0.4.1" &&
+      ("upstream/***".pathChanged() || ".konflux/patches/***".pathChanged() || ".konflux/rpms/***".pathChanged() ||
+      ".konflux/dockerfiles/controller.Dockerfile".pathChanged() ||
+      ".tekton/manual-approval-gate-next-controller-pull-request.yaml".pathChanged())
   creationTimestamp: null
   labels:
-    appstudio.openshift.io/application: manual-approval-gate-main
-    appstudio.openshift.io/component: manual-approval-gate-main-webhook
+    appstudio.openshift.io/application: manual-approval-gate-next
+    appstudio.openshift.io/component: manual-approval-gate-next-controller
     pipelines.appstudio.openshift.io/type: build
-  name: manual-approval-gate-main-webhook-on-pull-request
+  name: manual-approval-gate-next-controller-on-pull-request
   namespace: tekton-ecosystem-tenant
 spec:
   params:
@@ -28,14 +29,14 @@ spec:
   - name: revision
     value: '{{revision}}'
   - name: output-image
-    value: quay.io/redhat-user-workloads/tekton-ecosystem-tenant/manual-approval-gate-main/webhook:on-pr-{{revision}}
+    value: quay.io/redhat-user-workloads/tekton-ecosystem-tenant/manual-approval-gate-next/controller:on-pr-{{revision}}
   - name: image-expires-after
     value: 5d
   - name: dockerfile
-    value: .konflux/dockerfiles/webhook.Dockerfile
+    value: .konflux/dockerfiles/controller.Dockerfile
   - name: build-platforms
     value:
-      - linux/x86_64
+    - linux/x86_64
   - name: prefetch-input
     value: |
       {"type": "rpm", "path": ".konflux/rpms"}
