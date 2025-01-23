@@ -17,7 +17,7 @@ ARG VERSION=manual-approval-gate-webhook-main
 
 ENV KO_APP=/ko-app
 
-COPY --from=builder /tmp/manual-approval-gate-controller ${KO_APP}/manual-approval-gate-webhook
+COPY --from=builder /tmp/manual-approval-gate-webhook ${KO_APP}/manual-approval-gate-webhook
 
 LABEL \
     com.redhat.component="openshift-pipelines-manual-approval-gate-rhel8-container" \
@@ -31,8 +31,9 @@ LABEL \
     io.openshift.tags="pipelines,tekton,openshift"
 
 
-RUN microdnf install -y shadow-utils
-RUN groupadd -r -g 65532 nonroot && useradd --no-log-init -r -u 65532 -g nonroot nonroot
+RUN microdnf install -y shadow-utils && \
+    groupadd -r -g 65532 nonroot && \
+    useradd --no-log-init -r -u 65532 -g nonroot nonroot
 USER 65532
 
 ENTRYPOINT ["/ko-app/manual-approval-gate-webhook"]
