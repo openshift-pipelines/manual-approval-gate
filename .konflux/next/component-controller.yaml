@@ -15,4 +15,4 @@ spec:
     git:
       url: https://github.com/openshift-pipelines/manual-approval-gate
       dockerfileUrl: .konflux/dockerfiles/controller.Dockerfile
-      revision: release-v0.4.0
+      revision: release-v0.4.1
