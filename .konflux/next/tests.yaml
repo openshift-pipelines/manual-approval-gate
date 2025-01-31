@@ -3,17 +3,21 @@
 apiVersion: appstudio.redhat.com/v1beta2
 kind: IntegrationTestScenario
 metadata:
-  name: manual-approval-gate-next-enterprise-contract-group
+  name: manual-approval-gate-next-enterprise-contract
 spec:
   application: manual-approval-gate-next
   contexts:
-    - description: Application testing
-      name: group
+    - description: Application testing for manual-approval-gate-next-controller
+      name: component_manual-approval-gate-next-controller
+    - description: Application testing for manual-approval-gate-next-webhook
+      name: component_manual-approval-gate-next-webhook
   params:
     - name: POLICY_CONFIGURATION
       value: tekton-ecosystem-tenant/tekton-ecosystem-tenant-containers
     - name: TIMEOUT
       value: "15m0s"
+    - name: SINGLE_COMPONENT
+      value: "true"
   resolverRef:
     params:
       - name: url
