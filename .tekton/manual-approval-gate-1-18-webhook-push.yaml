@@ -10,8 +10,8 @@ metadata:
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/max-keep-runs: "3"
     pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch
-      == "main" &&
-      ("upstream/***".pathChanged() || ".konflux/patches/***".pathChanged() || ".konflux/rpms/***".pathChanged() ||
+      == "release-v0.5.0" &&
+      ("***".pathChanged() ||
       ".konflux/dockerfiles/webhook.Dockerfile".pathChanged() ||
       ".tekton/manual-approval-gate-1-18-webhook-push.yaml".pathChanged())
   creationTimestamp: null
