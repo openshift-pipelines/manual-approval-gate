@@ -13,13 +13,13 @@ metadata:
       == "release-v0.5.0" &&
       ("***".pathChanged() ||
       ".konflux/dockerfiles/webhook.Dockerfile".pathChanged() ||
-      ".tekton/manual-approval-gate-1-18-webhook-push.yaml".pathChanged())
+      ".tekton/manual-approval-gate-next-webhook-push.yaml".pathChanged())
   creationTimestamp: null
   labels:
-    appstudio.openshift.io/application: manual-approval-gate-1-18
-    appstudio.openshift.io/component: manual-approval-gate-1-18-webhook
+    appstudio.openshift.io/application: manual-approval-gate-next
+    appstudio.openshift.io/component: manual-approval-gate-next-webhook
     pipelines.appstudio.openshift.io/type: build
-  name: manual-approval-gate-1-18-webhook-on-push
+  name: manual-approval-gate-next-webhook-on-push
   namespace: tekton-ecosystem-tenant
 spec:
   params:
@@ -28,7 +28,7 @@ spec:
   - name: revision
     value: '{{revision}}'
   - name: output-image
-    value: quay.io/redhat-user-workloads/tekton-ecosystem-tenant/manual-approval-gate-1-18/webhook:{{revision}}
+    value: quay.io/redhat-user-workloads/tekton-ecosystem-tenant/manual-approval-gate-next/webhook:{{revision}}
   - name: dockerfile
     value: .konflux/dockerfiles/webhook.Dockerfile
   - name: build-platforms
