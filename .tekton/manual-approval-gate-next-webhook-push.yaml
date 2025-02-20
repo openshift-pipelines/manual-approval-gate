@@ -14,7 +14,6 @@ metadata:
       ("***".pathChanged() ||
       ".konflux/dockerfiles/webhook.Dockerfile".pathChanged() ||
       ".tekton/manual-approval-gate-next-webhook-push.yaml".pathChanged())
-  creationTimestamp: null
   labels:
     appstudio.openshift.io/application: manual-approval-gate-next
     appstudio.openshift.io/component: manual-approval-gate-next-webhook
