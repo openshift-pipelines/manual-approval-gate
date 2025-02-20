@@ -3,7 +3,7 @@
 apiVersion: appstudio.redhat.com/v1alpha1
 kind: ImageRepository
 metadata:
-  name: manual-approval-gate-main-webhook
+  name: main-manual-approval-gate-webhook-rhel9
   annotations:
     image-controller.appstudio.redhat.com/update-component-image: "true"
   labels:
@@ -11,5 +11,5 @@ metadata:
     appstudio.redhat.com/application: manual-approval-gate-main
 spec:
   image:
-   name: manual-approval-gate-main/webhook
+   name: main/manual-approval-gate-webhook-rhel9
    visibility: public
