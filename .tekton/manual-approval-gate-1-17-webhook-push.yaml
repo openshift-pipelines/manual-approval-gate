@@ -5,21 +5,21 @@ metadata:
   annotations:
     pipelinesascode.tekton.dev/cancel-in-progress: "true" # Cancel in-progress pipelines
     pipelinesascode.tekton.dev/pipeline: "https://raw.githubusercontent.com/openshift-pipelines/operator/refs/heads/main/.tekton/docker-build-ta.yaml"
-    build.appstudio.openshift.io/repo: https://github.com/openshift-pipelines/manual-approval-gate?rev={{revision}}
+    build.appstudio.openshift.io/repo: https://github.com/openshift-pipelines/manual-approval-gate.git?rev={{revision}}
     build.appstudio.redhat.com/commit_sha: '{{revision}}'
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/max-keep-runs: "3"
     pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch
       == "release-v0.4.1" &&
       ("***".pathChanged() ||
-      ".konflux/dockerfiles/controller.Dockerfile".pathChanged() ||
-      ".tekton/manual-approval-gate-1-18-controller-push.yaml".pathChanged())
+      ".konflux/dockerfiles/webhook.Dockerfile".pathChanged() ||
+      ".tekton/manual-approval-gate-1-17-webhook-push.yaml".pathChanged())
   creationTimestamp: null
   labels:
-    appstudio.openshift.io/application: manual-approval-gate-1-18
-    appstudio.openshift.io/component: manual-approval-gate-1-18-controller
+    appstudio.openshift.io/application: openshift-pipelines-1-17
+    appstudio.openshift.io/component: manual-approval-gate-1-17-webhook
     pipelines.appstudio.openshift.io/type: build
-  name: manual-approval-gate-1-18-controller-on-push
+  name: manual-approval-gate-1-17-webhook-on-push
   namespace: tekton-ecosystem-tenant
 spec:
   params:
@@ -28,9 +28,9 @@ spec:
   - name: revision
     value: '{{revision}}'
   - name: output-image
-    value: quay.io/redhat-user-workloads/tekton-ecosystem-tenant/manual-approval-gate-1-18/controller:{{revision}}
+    value: quay.io/redhat-user-workloads/tekton-ecosystem-tenant/1-17/manual-approval-gate-webhook-rhel9:{{revision}}
   - name: dockerfile
-    value: .konflux/dockerfiles/controller.Dockerfile
+    value: .konflux/dockerfiles/webhook.Dockerfile
   - name: prefetch-input
     value: |
       {"type": "rpm", "path": ".konflux/rpms"}
