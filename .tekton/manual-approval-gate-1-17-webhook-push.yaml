@@ -28,7 +28,7 @@ spec:
   - name: revision
     value: '{{revision}}'
   - name: output-image
-    value: quay.io/redhat-user-workloads/tekton-ecosystem-tenant/1-17/manual-approval-gate-webhook-rhel9:{{revision}}
+    value: quay.io/redhat-user-workloads/tekton-ecosystem-tenant/1-17/manual-approval-gate-webhook-rhel8:{{revision}}
   - name: dockerfile
     value: .konflux/dockerfiles/webhook.Dockerfile
   - name: prefetch-input
