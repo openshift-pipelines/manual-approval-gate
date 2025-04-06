@@ -7,7 +7,7 @@ require (
 	github.com/hashicorp/errwrap v1.1.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/golang-lru v1.0.2
-	github.com/openshift/client-go v0.0.0-20240422164335-6c851f4919dd
+	github.com/openshift/client-go b3bad3b645f2
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.9.0
