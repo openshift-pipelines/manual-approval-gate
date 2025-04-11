@@ -30,7 +30,7 @@ spec:
   - name: output-image
     value: quay.io/redhat-user-workloads/tekton-ecosystem-tenant/1-15/manual-approval-gate-webhook-rhel8:{{revision}}
   - name: dockerfile
-    value: .konflux/dockerfiles/webhook.Dockerfile      
+    value: .konflux/dockerfiles/webhook.Dockerfile
   - name: prefetch-input
     value: |
       {"type": "rpm", "path": ".konflux/rpms"}
