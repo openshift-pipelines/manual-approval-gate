@@ -5,7 +5,7 @@ metadata:
   annotations:
     pipelinesascode.tekton.dev/cancel-in-progress: "true" # Cancel in-progress pipelines
     pipelinesascode.tekton.dev/pipeline: "https://raw.githubusercontent.com/openshift-pipelines/operator/refs/heads/main/.tekton/docker-build-ta.yaml"
-    build.appstudio.openshift.io/repo: https://github.com/openshift-pipelines/manual-approval-gate?rev={{revision}}
+    build.appstudio.openshift.io/repo: https://github.com/openshift-pipelines/manual-approval-gate.git?rev={{revision}}
     build.appstudio.redhat.com/commit_sha: '{{revision}}'
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/max-keep-runs: "3"
@@ -16,7 +16,7 @@ metadata:
       ".tekton/manual-approval-gate-next-controller-push.yaml".pathChanged())
   creationTimestamp: null
   labels:
-    appstudio.openshift.io/application: manual-approval-gate-next
+    appstudio.openshift.io/application: openshift-pipelines-core-next
     appstudio.openshift.io/component: manual-approval-gate-next-controller
     pipelines.appstudio.openshift.io/type: build
   name: manual-approval-gate-next-controller-on-push
