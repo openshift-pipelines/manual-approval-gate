@@ -30,12 +30,14 @@ spec:
   - name: output-image
     value: quay.io/redhat-user-workloads/tekton-ecosystem-tenant/1-15/manual-approval-gate-controller-rhel8:{{revision}}
   - name: dockerfile
-    value: .konflux/dockerfiles/controller.Dockerfile
+    value: .konflux/dockerfiles/controller.Dockerfile    
   - name: prefetch-input
     value: |
       {"type": "rpm", "path": ".konflux/rpms"}
   pipelineRef:
     name: docker-build-ta
+  taskRunTemplate:
+    serviceAccountName: build-pipeline-manual-approval-gate-1-15-controller
   workspaces:
   - name: git-auth
     secret:
