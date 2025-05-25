@@ -14,7 +14,7 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.10.0
 	github.com/tektoncd/pipeline v1.0.0
-	github.com/tektoncd/plumbing v0.0.0-20221005220331-b2ddcdddc5e7
+	github.com/tektoncd/plumbing bd285d235f66
 	go.uber.org/zap v1.27.0
 	gomodules.xyz/jsonpatch/v2 v2.5.0
 	gotest.tools/v3 v3.5.1
