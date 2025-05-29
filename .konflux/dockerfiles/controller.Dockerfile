@@ -14,7 +14,7 @@ RUN CGO_ENABLED=0 \
     ./cmd/controller
 
 FROM $RUNTIME
-ARG VERSION=manual-approval-gate-controller-main
+ARG VERSION=manual-approval-gate-controller-0.6
 
 ENV KO_APP=/ko-app \
     KO_DATA_PATH=/kodata

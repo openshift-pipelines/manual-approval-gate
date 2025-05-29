@@ -14,7 +14,7 @@ RUN CGO_ENABLED=0 \
     ./cmd/webhook
 
 FROM $RUNTIME
-ARG VERSION=manual-approval-gate-webhook-main
+ARG VERSION=manual-approval-gate-webhook-0.6
 
 ENV KO_APP=/ko-app
 
