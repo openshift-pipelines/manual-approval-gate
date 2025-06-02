@@ -21,8 +21,8 @@ ENV KO_APP=/ko-app
 COPY --from=builder /tmp/manual-approval-gate-webhook ${KO_APP}/manual-approval-gate-webhook
 
 LABEL \
-    com.redhat.component="openshift-pipelines-manual-approval-gate-rhel8-container" \
-    name="openshift-pipelines/pipelines-manual-approval-gate-rhel8" \
+    com.redhat.component="openshift-pipelines-manual-approval-gate-rhel9-container" \
+    name="openshift-pipelines/pipelines-manual-approval-gate-rhel9" \
     version=$VERSION \
     summary="Red Hat OpenShift Pipelines Manual Approval Gate" \
     maintainer="pipelines-extcomm@redhat.com" \
