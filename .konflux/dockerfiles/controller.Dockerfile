@@ -23,8 +23,8 @@ COPY --from=builder /tmp/manual-approval-gate-controller ${KO_APP}/manual-approv
 COPY --from=builder /tmp/HEAD ${KO_DATA_PATH}/HEAD
 
 LABEL \
-    com.redhat.component="openshift-pipelines-manual-approval-gate-rhel8-container" \
-    name="openshift-pipelines/pipelines-manual-approval-gate-rhel8" \
+    com.redhat.component="openshift-pipelines-manual-approval-gate-rhel9-container" \
+    name="openshift-pipelines/pipelines-manual-approval-gate-rhel9" \
     version=$VERSION \
     summary="Red Hat OpenShift Pipelines Manual Approval Gate" \
     maintainer="pipelines-extcomm@redhat.com" \
