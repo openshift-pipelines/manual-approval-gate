@@ -1,5 +1,5 @@
 ARG GO_BUILDER=brew.registry.redhat.io/rh-osbs/openshift-golang-builder:v1.23
-ARG RUNTIME=registry.access.redhat.com/ubi9/ubi-minimal:latest@sha256:92b1d5747a93608b6adb64dfd54515c3c5a360802db4706765ff3d8470df6290
+ARG RUNTIME=registry.access.redhat.com/ubi9/ubi-minimal:latest@sha256:f172b3082a3d1bbe789a1057f03883c1113243564f01cd3020e27548b911d3f8
 
 FROM $GO_BUILDER AS builder
 
@@ -9,12 +9,11 @@ RUN set -e; for f in patches/*.patch; do echo ${f}; [[ -f ${f} ]] || continue; g
 ENV GODEBUG="http2server=0"
 ENV GOEXPERIMENT=strictfipsruntime
 RUN git rev-parse HEAD > /tmp/HEAD
-RUN CGO_ENABLED=0 \
-    go build -ldflags="-X 'knative.dev/pkg/changeset.rev=$(cat /tmp/HEAD)'" -mod=vendor -tags disable_gcp -tags strictfipsruntime  -v -o /tmp/manual-approval-gate-webhook \
+RUN go build -ldflags="-X 'knative.dev/pkg/changeset.rev=$(cat /tmp/HEAD)'" -mod=vendor -tags disable_gcp -tags strictfipsruntime  -v -o /tmp/manual-approval-gate-webhook \
     ./cmd/webhook
 
 FROM $RUNTIME
-ARG VERSION=manual-approval-gate-webhook-0.6
+ARG VERSION=manual-approval-gate-webhook-1-19
 
 ENV KO_APP=/ko-app
 
@@ -31,8 +30,6 @@ LABEL \
     io.k8s.description="Red Hat OpenShift Pipelines Manual Approval Gate" \
     io.openshift.tags="pipelines,tekton,openshift"
 
-
-RUN microdnf install -y shadow-utils
 RUN groupadd -r -g 65532 nonroot && useradd --no-log-init -r -u 65532 -g nonroot nonroot
 USER 65532
 
