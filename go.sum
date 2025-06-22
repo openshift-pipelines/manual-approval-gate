@@ -735,8 +735,8 @@ github.com/opencontainers/runtime-spec v1.0.3-0.20200929063507-e6143ca7d51d/go.m
 github.com/opencontainers/runtime-tools v0.0.0-20181011054405-1d69bd0f9c39/go.mod h1:r3f7wjNzSs2extwzU3Y+6pKfobzPh+kKFJ3ofN+3nfs=
 github.com/opencontainers/selinux v1.6.0/go.mod h1:VVGKuOLlE7v4PJyT6h7mNWvq1rzqiriPsEqVhc+svHE=
 github.com/opencontainers/selinux v1.8.0/go.mod h1:RScLhm78qiWa2gbVCcGkC7tCGdgk3ogry1nUQF8Evvo=
-github.com/openshift/api v0.0.0-20240422085825-2624175e9673 h1:D4qblu6z2A92fh7u9Nt1YskDtu+GySKiYP/D3tMWQ6A=
-github.com/openshift/api v0.0.0-20240422085825-2624175e9673/go.mod h1:CxgbWAlvu2iQB0UmKTtRu1YfepRg1/vJ64n2DlIEVz4=
+github.com/openshift/api v0.0.0-20250620202921-c3cf9bb5ccab h1:PmOv1Sq3awhLACPauwESA7i4HWZmduXrcgZA0slk+og=
+github.com/openshift/api v0.0.0-20250620202921-c3cf9bb5ccab/go.mod h1:yk60tHAmHhtVpJQo3TwVYq2zpuP70iJIFDCmeKMIzPw=
 github.com/openshift/client-go v0.0.0-20240422164335-6c851f4919dd h1:z5TPsTaB8Zzvv9fK/kVB6X+FG1GtwM56WfoanhlbyyQ=
 github.com/openshift/client-go v0.0.0-20240422164335-6c851f4919dd/go.mod h1:OC07uJXbaW/s21N6XDucROlmfUOhMXD5OrY3ZN3DmiM=
 github.com/openzipkin/zipkin-go v0.4.3 h1:9EGwpqkgnwdEIJ+Od7QVSEIH+ocmm5nPat0G7sjsSdg=
