@@ -247,11 +247,11 @@ github.com/opencontainers/go-digest
 ## explicit; go 1.18
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
-# github.com/openshift/api v0.0.0-20240422085825-2624175e9673
-## explicit; go 1.21
+# github.com/openshift/api v0.0.0-20250620092249-a8cbc218cd2c
+## explicit; go 1.23.0
 github.com/openshift/api/user/v1
-# github.com/openshift/client-go v0.0.0-20240422164335-6c851f4919dd
-## explicit; go 1.21
+# github.com/openshift/client-go v0.0.0-20250701093119-6d8e53714277
+## explicit; go 1.23.0
 github.com/openshift/client-go/user/applyconfigurations/internal
 github.com/openshift/client-go/user/applyconfigurations/user/v1
 github.com/openshift/client-go/user/clientset/versioned/scheme
@@ -1207,7 +1207,7 @@ knative.dev/pkg/webhook/resourcesemantics
 ## explicit; go 1.23
 sigs.k8s.io/json
 sigs.k8s.io/json/internal/golang/encoding/json
-# sigs.k8s.io/structured-merge-diff/v4 v4.5.0
+# sigs.k8s.io/structured-merge-diff/v4 v4.6.0
 ## explicit; go 1.13
 sigs.k8s.io/structured-merge-diff/v4/fieldpath
 sigs.k8s.io/structured-merge-diff/v4/merge
