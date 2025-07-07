@@ -29,7 +29,7 @@ type FakeOpenshiftpipelinesV1alpha1 struct {
 }
 
 func (c *FakeOpenshiftpipelinesV1alpha1) ApprovalTasks(namespace string) v1alpha1.ApprovalTaskInterface {
-	return &FakeApprovalTasks{c, namespace}
+	return newFakeApprovalTasks(c, namespace)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

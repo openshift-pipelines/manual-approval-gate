@@ -26,10 +26,12 @@ func TestApproveApprovalTask(t *testing.T) {
 					{
 						Name:  "tekton",
 						Input: "pending",
+						Type:  "User",
 					},
 					{
 						Name:  "cli",
 						Input: "pending",
+						Type:  "User",
 					},
 				},
 				NumberOfApprovalsRequired: 2,
@@ -52,10 +54,12 @@ func TestApproveApprovalTask(t *testing.T) {
 					{
 						Name:  "tekton",
 						Input: "pending",
+						Type:  "User",
 					},
 					{
 						Name:  "cli",
 						Input: "pending",
+						Type:  "User",
 					},
 				},
 				NumberOfApprovalsRequired: 2,
@@ -78,10 +82,12 @@ func TestApproveApprovalTask(t *testing.T) {
 					{
 						Name:  "tekton",
 						Input: "pending",
+						Type:  "User",
 					},
 					{
 						Name:  "cli",
 						Input: "pending",
+						Type:  "User",
 					},
 				},
 				NumberOfApprovalsRequired: 2,
