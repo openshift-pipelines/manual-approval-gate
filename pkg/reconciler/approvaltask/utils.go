@@ -23,9 +23,9 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 
 	"github.com/openshift-pipelines/manual-approval-gate/pkg/apis/approvaltask"
-	approvaltaskv1alpha1 "github.com/openshift-pipelines/manual-approval-gate/pkg/apis/approvaltask/v1alpha1"
 	v1alpha1 "github.com/openshift-pipelines/manual-approval-gate/pkg/apis/approvaltask/v1alpha1"
 	"github.com/openshift-pipelines/manual-approval-gate/pkg/client/clientset/versioned"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
@@ -181,12 +181,26 @@ func createApprovalTask(ctx context.Context, approvaltaskClientSet versioned.Int
 					approver.Name = name
 					approver.Input = pendingState
 
-					if !approverExists[name] {
-						approvers = append(approvers, approver)
-						approverExists[name] = true
+					// Check if the type is mentioned in the params
+					if strings.HasPrefix(name, "group:") {
+						approver.Type = "Group"
+
+						if strings.HasPrefix(approver.Name, "group:") {
+							parts := strings.SplitN(approver.Name, ":", 2)
+							if len(parts) == 2 {
+								approver.Name = parts[1]
+							}
+						}
+					} else {
+						approver.Type = "User"
 					}
-					users = append(users, name)
-					userExists[name] = true
+
+					if !approverExists[approver.Name] {
+						approvers = append(approvers, approver)
+						approverExists[approver.Name] = true
+					}
+					users = append(users, approver.Name)
+					userExists[approver.Name] = true
 				}
 			}
 		} else if v.Name == approvalsRequired {
@@ -267,17 +281,27 @@ func approvalTaskHasFalseInput(approvalTask v1alpha1.ApprovalTask) bool {
 
 func approvalTaskHasTrueInput(approvalTask v1alpha1.ApprovalTask) bool {
 	// Count approvers with input "approve"
-	count := 0
+	requiredApprovals := approvalTask.Spec.NumberOfApprovalsRequired
+
+	approvedUsers := make(map[string]bool)
+
 	for _, approver := range approvalTask.Spec.Approvers {
-		if approver.Input == hasApproved {
-			count++
+		if approver.Input != hasApproved {
+			continue
+		}
+
+		if approver.Type == "User" {
+			approvedUsers[approver.Name] = true
+		} else if approver.Type == "Group" {
+			for _, user := range approver.Users {
+				if user.Input == hasApproved {
+					approvedUsers[user.Name] = true
+				}
+			}
 		}
 	}
 
-	if count == approvalTask.Spec.NumberOfApprovalsRequired {
-		return true
-	}
-	return false
+	return len(approvedUsers) >= requiredApprovals
 }
 
 func (r *Reconciler) checkIfUpdateRequired(ctx context.Context, approvalTask v1alpha1.ApprovalTask, run *v1beta1.CustomRun) error {
@@ -300,10 +324,10 @@ func (r *Reconciler) checkIfUpdateRequired(ctx context.Context, approvalTask v1a
 			logger.Infof("Approval task %s is in pending state", approvalTask.Name)
 		case rejectedState:
 			logger.Infof("Approval task %s is rejected", approvalTask.Name)
-			run.Status.MarkCustomRunFailed(approvaltaskv1alpha1.ApprovalTaskRunReasonFailed.String(), "Approval Task denied")
+			run.Status.MarkCustomRunFailed(v1alpha1.ApprovalTaskRunReasonFailed.String(), "Approval Task denied")
 		case approvedState:
 			logger.Infof("Approval task %s is approved", approvalTask.Name)
-			run.Status.MarkCustomRunSucceeded(approvaltaskv1alpha1.ApprovalTaskRunReasonSucceeded.String(),
+			run.Status.MarkCustomRunSucceeded(v1alpha1.ApprovalTaskRunReasonSucceeded.String(),
 				"TaskRun succeeded")
 		}
 	}
@@ -317,6 +341,7 @@ func updateApprovalState(ctx context.Context, approvaltaskClientSet versioned.In
 	currentApprovers := make(map[string]v1alpha1.ApproverState)
 	approvalTask.Status.ApproversResponse = []v1alpha1.ApproverState{}
 	// Populate the map with approvers having input approve/reject
+
 	for _, approver := range approvalTask.Spec.Approvers {
 		if approver.Input == hasApproved || approver.Input == hasRejected {
 			response := ""
@@ -325,10 +350,56 @@ func updateApprovalState(ctx context.Context, approvaltaskClientSet versioned.In
 			} else if approver.Input == hasRejected {
 				response = rejectedState
 			}
-			currentApprovers[approver.Name] = v1alpha1.ApproverState{
-				Name:     approver.Name,
-				Response: response,
-				Message:  approver.Message,
+
+			// If it's a group, iterate over the users
+			if approver.Type == "Group" {
+				groupMembers := []v1alpha1.GroupMemberState{}
+				groupResponse := ""
+				hasApprovals := false
+				hasRejections := false
+
+				for _, user := range approver.Users {
+					userResponse := ""
+					if user.Input == hasApproved {
+						userResponse = approvedState
+						hasApprovals = true
+					} else if user.Input == hasRejected {
+						userResponse = rejectedState
+						hasRejections = true
+					}
+
+					if userResponse != "" {
+						groupMembers = append(groupMembers, v1alpha1.GroupMemberState{
+							Name:     user.Name,
+							Response: userResponse,
+							Message:  approver.Message, // Inherit message from group level
+						})
+					}
+				}
+
+				// Determine group response based on individual user responses
+				if hasRejections {
+					groupResponse = rejectedState
+				} else if hasApprovals {
+					groupResponse = approvedState
+				}
+
+				if groupResponse != "" {
+					currentApprovers[approver.Name] = v1alpha1.ApproverState{
+						Name:         approver.Name,
+						Type:         "Group",
+						Response:     groupResponse,
+						Message:      approver.Message,
+						GroupMembers: groupMembers,
+					}
+				}
+			} else if approver.Type == "User" {
+				currentApprovers[approver.Name] = v1alpha1.ApproverState{
+					Name:     approver.Name,
+					Type:     "User",
+					Response: response,
+					Message:  approver.Message,
+				}
 			}
 		}
 	}

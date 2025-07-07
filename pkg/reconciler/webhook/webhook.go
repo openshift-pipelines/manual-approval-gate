@@ -100,13 +100,13 @@ func (r *reconciler) Admit(ctx context.Context, request *admissionv1.AdmissionRe
 
 	oldBytes := request.OldObject.Raw
 	var oldObj v1alpha1.ApprovalTask
-	if len(newBytes) != 0 {
-		newDecoder := json.NewDecoder(bytes.NewBuffer(oldBytes))
+	if len(oldBytes) != 0 {
+		oldDecoder := json.NewDecoder(bytes.NewBuffer(oldBytes))
 		if r.disallowUnknownFields {
-			newDecoder.DisallowUnknownFields()
+			oldDecoder.DisallowUnknownFields()
 		}
-		if err := newDecoder.Decode(&oldObj); err != nil {
-			return webhook.MakeErrorStatus("cannot decode incoming new object: %v", err)
+		if err := oldDecoder.Decode(&oldObj); err != nil {
+			return webhook.MakeErrorStatus("cannot decode incoming old object: %v", err)
 		}
 	}
 
@@ -121,11 +121,11 @@ func (r *reconciler) Admit(ctx context.Context, request *admissionv1.AdmissionRe
 	}
 
 	// Check if username is mentioned in the approval task
-	if !ifUserExists(oldObj.Spec.Approvers, request.UserInfo.Username) {
+	if !ifUserExists(oldObj.Spec.Approvers, request) {
 		return &admissionv1.AdmissionResponse{
 			Allowed: false,
 			Result: &metav1.Status{
-				Message: "User does not exist in the in the approval list",
+				Message: "User does not exist in the approval list",
 			},
 		}
 	}
@@ -144,13 +144,16 @@ func (r *reconciler) Admit(ctx context.Context, request *admissionv1.AdmissionRe
 	// Check if user is updating the input for his name only
 	var userApprovalChanged bool
 	errMsg := fmt.Errorf("User can only update their own approval input")
-	changed, err := IsUserApprovalChanged(oldObj.Spec.Approvers, newObj.Spec.Approvers, request.UserInfo.Username)
+
+	changed, err := IsUserApprovalChanged(oldObj.Spec.Approvers, newObj.Spec.Approvers, request)
 	if err != nil {
 		userApprovalChanged = false
-		errMsg = err
+		errMsg = fmt.Errorf("Invalid input change: %v", err)
 	} else if changed {
-		if CheckOtherUsersForInvalidChanges(oldObj.Spec.Approvers, newObj.Spec.Approvers, request.UserInfo.Username) {
+		if CheckOtherUsersForInvalidChanges(oldObj.Spec.Approvers, newObj.Spec.Approvers, request) {
 			userApprovalChanged = true
+		} else {
+			userApprovalChanged = false
 		}
 	} else {
 		userApprovalChanged = false
@@ -226,13 +229,29 @@ func (ac *reconciler) Path() string {
 	return ac.path
 }
 
-func ifUserExists(approvals []v1alpha1.ApproverDetails, currentUser string) bool {
+func ifUserExists(approvals []v1alpha1.ApproverDetails, request *admissionv1.AdmissionRequest) bool {
 	if len(approvals) == 0 {
 		return true
 	}
 	for _, approval := range approvals {
-		if approval.Name == currentUser {
-			return true
+		switch approval.Type {
+		case "User":
+			if approval.Name == request.UserInfo.Username {
+				return true
+			}
+		case "Group":
+			// Check if user is in the group by checking the group name against user's groups
+			for _, userGroup := range request.UserInfo.Groups {
+				if approval.Name == userGroup {
+					return true
+				}
+			}
+			// Also check if user is explicitly listed in the group's users
+			for _, user := range approval.Users {
+				if user.Name == request.UserInfo.Username {
+					return true
+				}
+			}
 		}
 	}
 	return false
@@ -269,23 +288,195 @@ func hasOnlyInputChanged(oldObjApprover, newObjApprover v1alpha1.ApproverDetails
 }
 
 // IsUserApprovalChanged checks if there is a valid input change for the current user.
-func IsUserApprovalChanged(oldObjApprovers, newObjApprovers []v1alpha1.ApproverDetails, currentUser string) (bool, error) {
+func IsUserApprovalChanged(oldObjApprovers, newObjApprovers []v1alpha1.ApproverDetails, request *admissionv1.AdmissionRequest) (bool, error) {
+	currentUser := request.UserInfo.Username
 	for i, approver := range oldObjApprovers {
-		if approver.Name == currentUser {
+		if approver.Name == currentUser && approver.Type == "User" {
 			return hasOnlyInputChanged(approver, newObjApprovers[i])
+		}
+
+		if approver.Type == "Group" {
+			// Check if current user is a member of this group
+			isUserInGroup := false
+
+			// Check if user is in the group by checking the group name against user's groups
+			for _, userGroup := range request.UserInfo.Groups {
+				if approver.Name == userGroup {
+					isUserInGroup = true
+					break
+				}
+			}
+
+			// Also check if user is explicitly listed in the group's users
+			for _, user := range approver.Users {
+				if user.Name == currentUser {
+					isUserInGroup = true
+					break
+				}
+			}
+
+			if isUserInGroup {
+				// Allow changes to group-level input if user is in the group
+				if i < len(newObjApprovers) {
+					if approver.Input != newObjApprovers[i].Input {
+						if err := hasValidInputValue(newObjApprovers[i].Input); err != nil {
+							return false, err
+						}
+						return true, nil
+					}
+				}
+
+				// Check if user is adding themselves to the group's users list
+				oldUserFound := false
+				newUserFound := false
+
+				for _, user := range approver.Users {
+					if user.Name == currentUser {
+						oldUserFound = true
+						break
+					}
+				}
+
+				if i < len(newObjApprovers) {
+					for _, user := range newObjApprovers[i].Users {
+						if user.Name == currentUser {
+							newUserFound = true
+							break
+						}
+					}
+				}
+
+				// Allow user to add themselves to the group
+				if !oldUserFound && newUserFound {
+					// Validate the input they're setting for themselves
+					if i < len(newObjApprovers) {
+						for _, user := range newObjApprovers[i].Users {
+							if user.Name == currentUser {
+								if err := hasValidInputValue(user.Input); err != nil {
+									return false, err
+								}
+								return true, nil
+							}
+						}
+					}
+					return true, nil
+				}
+
+				// Allow changes to individual user inputs within the group
+				// Find current user in old users list
+				var oldUserInput string
+				userFoundInOld := false
+				for _, user := range approver.Users {
+					if user.Name == currentUser {
+						oldUserInput = user.Input
+						userFoundInOld = true
+						break
+					}
+				}
+
+				// Find current user in new users list
+				var newUserInput string
+				userFoundInNew := false
+				if i < len(newObjApprovers) {
+					for _, user := range newObjApprovers[i].Users {
+						if user.Name == currentUser {
+							newUserInput = user.Input
+							userFoundInNew = true
+							break
+						}
+					}
+				}
+
+				// Allow user to change their input if they're in both old and new lists
+				if userFoundInOld && userFoundInNew && oldUserInput != newUserInput {
+					if err := hasValidInputValue(newUserInput); err != nil {
+						return false, err
+					}
+					return true, nil
+				}
+			}
 		}
 	}
 	return false, nil
 }
 
 // CheckOtherUsersForInvalidChanges validates that no other approvers inputs have been changed
-func CheckOtherUsersForInvalidChanges(oldObjApprovers, newObjApprover []v1alpha1.ApproverDetails, currentUser string) bool {
+func CheckOtherUsersForInvalidChanges(oldObjApprovers, newObjApprover []v1alpha1.ApproverDetails, request *admissionv1.AdmissionRequest) bool {
+	currentUser := request.UserInfo.Username
 	for i, approver := range oldObjApprovers {
-		if approver.Name != currentUser {
+		if approver.Type == "User" && approver.Name != currentUser {
 			if oldObjApprovers[i].Input != newObjApprover[i].Input {
 				return false
 			}
 		}
+
+		if approver.Type == "Group" {
+			// Check if current user is a member of this group
+			isUserInGroup := false
+
+			// Check if user is in the group by checking the group name against user's groups
+			for _, userGroup := range request.UserInfo.Groups {
+				if approver.Name == userGroup {
+					isUserInGroup = true
+					break
+				}
+			}
+
+			// Also check if user is explicitly listed in the group's users
+			for _, user := range approver.Users {
+				if user.Name == currentUser {
+					isUserInGroup = true
+					break
+				}
+			}
+
+			// If current user is not in this group, they shouldn't be able to change the group-level input
+			if !isUserInGroup {
+				if i < len(newObjApprover) && approver.Input != newObjApprover[i].Input {
+					return false
+				}
+			}
+
+			// Check that only current user's input has changed in group users
+			// Build maps of existing users for easier comparison
+			oldUsers := make(map[string]string) // name -> input
+			newUsers := make(map[string]string) // name -> input
+
+			for _, user := range approver.Users {
+				oldUsers[user.Name] = user.Input
+			}
+
+			if i < len(newObjApprover) {
+				for _, user := range newObjApprover[i].Users {
+					newUsers[user.Name] = user.Input
+				}
+			}
+
+			// Check that existing users (other than current user) haven't changed their input
+			for userName, oldInput := range oldUsers {
+				if userName != currentUser {
+					if newInput, exists := newUsers[userName]; exists {
+						if oldInput != newInput {
+							return false // Someone else's input changed
+						}
+					}
+				}
+			}
+
+			// Check that no unauthorized users were added to the group
+			for userName := range newUsers {
+				if _, existedBefore := oldUsers[userName]; !existedBefore {
+					// Someone new was added - only allow if it's the current user and they're a group member
+					if userName != currentUser {
+						return false // Someone other than current user was added
+					}
+					if !isUserInGroup {
+						return false // Current user is not a member of this group
+					}
+				}
+			}
+		}
 	}
+
 	return true
 }
