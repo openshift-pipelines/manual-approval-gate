@@ -362,6 +362,7 @@ func TestUpdateApprovalTaskWithNoApprovalsProvided(t *testing.T) {
 	approvals := v1alpha1.ApproverDetails{
 		Name:  "foo",
 		Input: "approve",
+		Type:  "User",
 	}
 	approvalTask.Spec.Approvers = append(approvalTask.Spec.Approvers, approvals)
 
@@ -421,14 +422,17 @@ func TestApprovalTaskHasTrueInputWithAllApprovals(t *testing.T) {
 				{
 					Name:  "foo",
 					Input: "pending",
+					Type:  "User",
 				},
 				{
 					Name:  "bar",
 					Input: "approve",
+					Type:  "User",
 				},
 				{
 					Name:  "tekton",
 					Input: "approve",
+					Type:  "User",
 				},
 			},
 			NumberOfApprovalsRequired: 2,

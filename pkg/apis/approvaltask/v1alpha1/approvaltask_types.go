@@ -47,9 +47,11 @@ type ApprovalTaskSpec struct {
 }
 
 type ApproverDetails struct {
-	Name    string `json:"name"`
-	Input   string `json:"input"`
-	Message string `json:"message,omitempty"`
+	Name    string   `json:"name"`
+	Input   string   `json:"input"`
+	Message string   `json:"message,omitempty"`
+	Type    string   `json:"type"`
+	Users   []string `json:"users,omitempty"`
 }
 
 type ApprovalTaskStatus struct {
@@ -65,6 +67,8 @@ type ApproverState struct {
 	Name     string `json:"name"`
 	Response string `json:"response"`
 	Message  string `json:"message,omitempty"`
+	Type     string `json:"type"`
+	Group    string `json:"group,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
