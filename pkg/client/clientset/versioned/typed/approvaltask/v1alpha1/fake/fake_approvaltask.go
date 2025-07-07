@@ -19,124 +19,34 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
 	v1alpha1 "github.com/openshift-pipelines/manual-approval-gate/pkg/apis/approvaltask/v1alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	approvaltaskv1alpha1 "github.com/openshift-pipelines/manual-approval-gate/pkg/client/clientset/versioned/typed/approvaltask/v1alpha1"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeApprovalTasks implements ApprovalTaskInterface
-type FakeApprovalTasks struct {
+// fakeApprovalTasks implements ApprovalTaskInterface
+type fakeApprovalTasks struct {
+	*gentype.FakeClientWithList[*v1alpha1.ApprovalTask, *v1alpha1.ApprovalTaskList]
 	Fake *FakeOpenshiftpipelinesV1alpha1
-	ns   string
 }
 
-var approvaltasksResource = schema.GroupVersionResource{Group: "openshiftpipelines.org", Version: "v1alpha1", Resource: "approvaltasks"}
-
-var approvaltasksKind = schema.GroupVersionKind{Group: "openshiftpipelines.org", Version: "v1alpha1", Kind: "ApprovalTask"}
-
-// Get takes name of the approvalTask, and returns the corresponding approvalTask object, and an error if there is any.
-func (c *FakeApprovalTasks) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.ApprovalTask, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(approvaltasksResource, c.ns, name), &v1alpha1.ApprovalTask{})
-
-	if obj == nil {
-		return nil, err
+func newFakeApprovalTasks(fake *FakeOpenshiftpipelinesV1alpha1, namespace string) approvaltaskv1alpha1.ApprovalTaskInterface {
+	return &fakeApprovalTasks{
+		gentype.NewFakeClientWithList[*v1alpha1.ApprovalTask, *v1alpha1.ApprovalTaskList](
+			fake.Fake,
+			namespace,
+			v1alpha1.SchemeGroupVersion.WithResource("approvaltasks"),
+			v1alpha1.SchemeGroupVersion.WithKind("ApprovalTask"),
+			func() *v1alpha1.ApprovalTask { return &v1alpha1.ApprovalTask{} },
+			func() *v1alpha1.ApprovalTaskList { return &v1alpha1.ApprovalTaskList{} },
+			func(dst, src *v1alpha1.ApprovalTaskList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha1.ApprovalTaskList) []*v1alpha1.ApprovalTask {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1alpha1.ApprovalTaskList, items []*v1alpha1.ApprovalTask) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha1.ApprovalTask), err
-}
-
-// List takes label and field selectors, and returns the list of ApprovalTasks that match those selectors.
-func (c *FakeApprovalTasks) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.ApprovalTaskList, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewListAction(approvaltasksResource, approvaltasksKind, c.ns, opts), &v1alpha1.ApprovalTaskList{})
-
-	if obj == nil {
-		return nil, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha1.ApprovalTaskList{ListMeta: obj.(*v1alpha1.ApprovalTaskList).ListMeta}
-	for _, item := range obj.(*v1alpha1.ApprovalTaskList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested approvalTasks.
-func (c *FakeApprovalTasks) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(approvaltasksResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a approvalTask and creates it.  Returns the server's representation of the approvalTask, and an error, if there is any.
-func (c *FakeApprovalTasks) Create(ctx context.Context, approvalTask *v1alpha1.ApprovalTask, opts v1.CreateOptions) (result *v1alpha1.ApprovalTask, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(approvaltasksResource, c.ns, approvalTask), &v1alpha1.ApprovalTask{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha1.ApprovalTask), err
-}
-
-// Update takes the representation of a approvalTask and updates it. Returns the server's representation of the approvalTask, and an error, if there is any.
-func (c *FakeApprovalTasks) Update(ctx context.Context, approvalTask *v1alpha1.ApprovalTask, opts v1.UpdateOptions) (result *v1alpha1.ApprovalTask, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(approvaltasksResource, c.ns, approvalTask), &v1alpha1.ApprovalTask{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha1.ApprovalTask), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeApprovalTasks) UpdateStatus(ctx context.Context, approvalTask *v1alpha1.ApprovalTask, opts v1.UpdateOptions) (*v1alpha1.ApprovalTask, error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(approvaltasksResource, "status", c.ns, approvalTask), &v1alpha1.ApprovalTask{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha1.ApprovalTask), err
-}
-
-// Delete takes name of the approvalTask and deletes it. Returns an error if one occurs.
-func (c *FakeApprovalTasks) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(approvaltasksResource, c.ns, name, opts), &v1alpha1.ApprovalTask{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeApprovalTasks) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(approvaltasksResource, c.ns, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha1.ApprovalTaskList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched approvalTask.
-func (c *FakeApprovalTasks) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.ApprovalTask, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(approvaltasksResource, c.ns, name, pt, data, subresources...), &v1alpha1.ApprovalTask{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha1.ApprovalTask), err
 }
