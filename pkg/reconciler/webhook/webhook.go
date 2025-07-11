@@ -121,11 +121,11 @@ func (r *reconciler) Admit(ctx context.Context, request *admissionv1.AdmissionRe
 	}
 
 	// Check if username is mentioned in the approval task
-	if !ifUserExists(oldObj.Spec.Approvers, request.UserInfo.Username) {
+	if !ifUserExists(oldObj.Spec.Approvers, request) {
 		return &admissionv1.AdmissionResponse{
 			Allowed: false,
 			Result: &metav1.Status{
-				Message: "User does not exist in the in the approval list",
+				Message: "User does not exist in the approval list",
 			},
 		}
 	}
@@ -226,13 +226,22 @@ func (ac *reconciler) Path() string {
 	return ac.path
 }
 
-func ifUserExists(approvals []v1alpha1.ApproverDetails, currentUser string) bool {
+func ifUserExists(approvals []v1alpha1.ApproverDetails, request *admissionv1.AdmissionRequest) bool {
 	if len(approvals) == 0 {
 		return true
 	}
 	for _, approval := range approvals {
-		if approval.Name == currentUser {
-			return true
+		switch approval.Type {
+		case "User":
+			if approval.Name == request.UserInfo.Username {
+				return true
+			}
+		case "Group":
+			for _, groupName := range request.UserInfo.Groups {
+				if approval.Name == groupName {
+					return true
+				}
+			}
 		}
 	}
 	return false
@@ -271,8 +280,12 @@ func hasOnlyInputChanged(oldObjApprover, newObjApprover v1alpha1.ApproverDetails
 // IsUserApprovalChanged checks if there is a valid input change for the current user.
 func IsUserApprovalChanged(oldObjApprovers, newObjApprovers []v1alpha1.ApproverDetails, currentUser string) (bool, error) {
 	for i, approver := range oldObjApprovers {
-		if approver.Name == currentUser {
+		if approver.Name == currentUser && approver.Type == "User" {
 			return hasOnlyInputChanged(approver, newObjApprovers[i])
+		}
+
+		if approver.Type == "Group" {
+			return true, nil
 		}
 	}
 	return false, nil
@@ -281,11 +294,12 @@ func IsUserApprovalChanged(oldObjApprovers, newObjApprovers []v1alpha1.ApproverD
 // CheckOtherUsersForInvalidChanges validates that no other approvers inputs have been changed
 func CheckOtherUsersForInvalidChanges(oldObjApprovers, newObjApprover []v1alpha1.ApproverDetails, currentUser string) bool {
 	for i, approver := range oldObjApprovers {
-		if approver.Name != currentUser {
+		if approver.Name != currentUser && approver.Type == "User" {
 			if oldObjApprovers[i].Input != newObjApprover[i].Input {
 				return false
 			}
 		}
 	}
+
 	return true
 }

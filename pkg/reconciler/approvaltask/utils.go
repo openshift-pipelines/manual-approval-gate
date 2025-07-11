@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 
 	"github.com/openshift-pipelines/manual-approval-gate/pkg/apis/approvaltask"
 	approvaltaskv1alpha1 "github.com/openshift-pipelines/manual-approval-gate/pkg/apis/approvaltask/v1alpha1"
@@ -181,6 +182,20 @@ func createApprovalTask(ctx context.Context, approvaltaskClientSet versioned.Int
 					approver.Name = name
 					approver.Input = pendingState
 
+					// Check if the type is mentioned in the params
+					if strings.HasPrefix(name, "group:") {
+						approver.Type = "Group"
+
+						if strings.HasPrefix(approver.Name, "group:") {
+							parts := strings.SplitN(approver.Name, ":", 2)
+							if len(parts) == 2 {
+								approver.Name = parts[1]
+							}
+						}
+					} else {
+						approver.Type = "User"
+					}
+
 					if !approverExists[name] {
 						approvers = append(approvers, approver)
 						approverExists[name] = true
@@ -267,17 +282,25 @@ func approvalTaskHasFalseInput(approvalTask v1alpha1.ApprovalTask) bool {
 
 func approvalTaskHasTrueInput(approvalTask v1alpha1.ApprovalTask) bool {
 	// Count approvers with input "approve"
-	count := 0
+	requiredApprovals := approvalTask.Spec.NumberOfApprovalsRequired
+
+	approvedUsers := make(map[string]bool)
+
 	for _, approver := range approvalTask.Spec.Approvers {
-		if approver.Input == hasApproved {
-			count++
+		if approver.Input != hasApproved {
+			continue
+		}
+
+		if approver.Type == "User" {
+			approvedUsers[approver.Name] = true
+		} else if approver.Type == "Group" {
+			for _, user := range approver.Users {
+				approvedUsers[user] = true
+			}
 		}
 	}
 
-	if count == approvalTask.Spec.NumberOfApprovalsRequired {
-		return true
-	}
-	return false
+	return len(approvedUsers) >= requiredApprovals
 }
 
 func (r *Reconciler) checkIfUpdateRequired(ctx context.Context, approvalTask v1alpha1.ApprovalTask, run *v1beta1.CustomRun) error {
@@ -317,6 +340,7 @@ func updateApprovalState(ctx context.Context, approvaltaskClientSet versioned.In
 	currentApprovers := make(map[string]v1alpha1.ApproverState)
 	approvalTask.Status.ApproversResponse = []v1alpha1.ApproverState{}
 	// Populate the map with approvers having input approve/reject
+
 	for _, approver := range approvalTask.Spec.Approvers {
 		if approver.Input == hasApproved || approver.Input == hasRejected {
 			response := ""
@@ -325,10 +349,33 @@ func updateApprovalState(ctx context.Context, approvaltaskClientSet versioned.In
 			} else if approver.Input == hasRejected {
 				response = rejectedState
 			}
-			currentApprovers[approver.Name] = v1alpha1.ApproverState{
-				Name:     approver.Name,
-				Response: response,
-				Message:  approver.Message,
+
+			// If it's a group, iterate over the users
+			if approver.Type == "Group" {
+				for _, user := range approver.Users {
+					parts := strings.Split(user, ":")
+					// Handle the case where parts is greater than 0
+					userFromGroupResponse := ""
+					if parts[1] == hasApproved {
+						userFromGroupResponse = approvedState
+					} else if parts[1] == hasRejected {
+						userFromGroupResponse = rejectedState
+					}
+					currentApprovers[user] = v1alpha1.ApproverState{
+						Name:     parts[0],
+						Type:     "User",
+						Group:    approver.Name,
+						Response: userFromGroupResponse,
+						Message:  approver.Message,
+					}
+				}
+			} else if approver.Type == "User" {
+				currentApprovers[approver.Name] = v1alpha1.ApproverState{
+					Name:     approver.Name,
+					Type:     "User",
+					Response: response,
+					Message:  approver.Message,
+				}
 			}
 		}
 	}
