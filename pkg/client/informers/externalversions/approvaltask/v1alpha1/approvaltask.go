@@ -19,13 +19,13 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	approvaltaskv1alpha1 "github.com/openshift-pipelines/manual-approval-gate/pkg/apis/approvaltask/v1alpha1"
+	apisapprovaltaskv1alpha1 "github.com/openshift-pipelines/manual-approval-gate/pkg/apis/approvaltask/v1alpha1"
 	versioned "github.com/openshift-pipelines/manual-approval-gate/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/openshift-pipelines/manual-approval-gate/pkg/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/openshift-pipelines/manual-approval-gate/pkg/client/listers/approvaltask/v1alpha1"
+	approvaltaskv1alpha1 "github.com/openshift-pipelines/manual-approval-gate/pkg/client/listers/approvaltask/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // ApprovalTasks.
 type ApprovalTaskInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.ApprovalTaskLister
+	Lister() approvaltaskv1alpha1.ApprovalTaskLister
 }
 
 type approvalTaskInformer struct {
@@ -71,7 +71,7 @@ func NewFilteredApprovalTaskInformer(client versioned.Interface, namespace strin
 				return client.OpenshiftpipelinesV1alpha1().ApprovalTasks(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&approvaltaskv1alpha1.ApprovalTask{},
+		&apisapprovaltaskv1alpha1.ApprovalTask{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +82,9 @@ func (f *approvalTaskInformer) defaultInformer(client versioned.Interface, resyn
 }
 
 func (f *approvalTaskInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&approvaltaskv1alpha1.ApprovalTask{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisapprovaltaskv1alpha1.ApprovalTask{}, f.defaultInformer)
 }
 
-func (f *approvalTaskInformer) Lister() v1alpha1.ApprovalTaskLister {
-	return v1alpha1.NewApprovalTaskLister(f.Informer().GetIndexer())
+func (f *approvalTaskInformer) Lister() approvaltaskv1alpha1.ApprovalTaskLister {
+	return approvaltaskv1alpha1.NewApprovalTaskLister(f.Informer().GetIndexer())
 }

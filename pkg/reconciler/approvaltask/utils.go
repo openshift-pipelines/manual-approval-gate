@@ -196,12 +196,12 @@ func createApprovalTask(ctx context.Context, approvaltaskClientSet versioned.Int
 						approver.Type = "User"
 					}
 
-					if !approverExists[name] {
+					if !approverExists[approver.Name] {
 						approvers = append(approvers, approver)
-						approverExists[name] = true
+						approverExists[approver.Name] = true
 					}
-					users = append(users, name)
-					userExists[name] = true
+					users = append(users, approver.Name)
+					userExists[approver.Name] = true
 				}
 			}
 		} else if v.Name == approvalsRequired {
@@ -295,7 +295,9 @@ func approvalTaskHasTrueInput(approvalTask v1alpha1.ApprovalTask) bool {
 			approvedUsers[approver.Name] = true
 		} else if approver.Type == "Group" {
 			for _, user := range approver.Users {
-				approvedUsers[user] = true
+				if user.Input == hasApproved {
+					approvedUsers[user.Name] = true
+				}
 			}
 		}
 	}
@@ -352,21 +354,44 @@ func updateApprovalState(ctx context.Context, approvaltaskClientSet versioned.In
 
 			// If it's a group, iterate over the users
 			if approver.Type == "Group" {
+				groupMembers := []v1alpha1.GroupMemberState{}
+				groupResponse := ""
+				hasApprovals := false
+				hasRejections := false
+
 				for _, user := range approver.Users {
-					parts := strings.Split(user, ":")
-					// Handle the case where parts is greater than 0
-					userFromGroupResponse := ""
-					if parts[1] == hasApproved {
-						userFromGroupResponse = approvedState
-					} else if parts[1] == hasRejected {
-						userFromGroupResponse = rejectedState
+					userResponse := ""
+					if user.Input == hasApproved {
+						userResponse = approvedState
+						hasApprovals = true
+					} else if user.Input == hasRejected {
+						userResponse = rejectedState
+						hasRejections = true
 					}
-					currentApprovers[user] = v1alpha1.ApproverState{
-						Name:     parts[0],
-						Type:     "User",
-						Group:    approver.Name,
-						Response: userFromGroupResponse,
-						Message:  approver.Message,
+
+					if userResponse != "" {
+						groupMembers = append(groupMembers, v1alpha1.GroupMemberState{
+							Name:     user.Name,
+							Response: userResponse,
+							Message:  approver.Message, // Inherit message from group level
+						})
+					}
+				}
+
+				// Determine group response based on individual user responses
+				if hasRejections {
+					groupResponse = rejectedState
+				} else if hasApprovals {
+					groupResponse = approvedState
+				}
+
+				if groupResponse != "" {
+					currentApprovers[approver.Name] = v1alpha1.ApproverState{
+						Name:         approver.Name,
+						Type:         "Group",
+						Response:     groupResponse,
+						Message:      approver.Message,
+						GroupMembers: groupMembers,
 					}
 				}
 			} else if approver.Type == "User" {
