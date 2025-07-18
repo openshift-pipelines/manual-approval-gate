@@ -19,10 +19,10 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/openshift-pipelines/manual-approval-gate/pkg/apis/approvaltask/v1alpha1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	approvaltaskv1alpha1 "github.com/openshift-pipelines/manual-approval-gate/pkg/apis/approvaltask/v1alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // ApprovalTaskLister helps list ApprovalTasks.
@@ -30,7 +30,7 @@ import (
 type ApprovalTaskLister interface {
 	// List lists all ApprovalTasks in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.ApprovalTask, err error)
+	List(selector labels.Selector) (ret []*approvaltaskv1alpha1.ApprovalTask, err error)
 	// ApprovalTasks returns an object that can list and get ApprovalTasks.
 	ApprovalTasks(namespace string) ApprovalTaskNamespaceLister
 	ApprovalTaskListerExpansion
@@ -38,25 +38,17 @@ type ApprovalTaskLister interface {
 
 // approvalTaskLister implements the ApprovalTaskLister interface.
 type approvalTaskLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*approvaltaskv1alpha1.ApprovalTask]
 }
 
 // NewApprovalTaskLister returns a new ApprovalTaskLister.
 func NewApprovalTaskLister(indexer cache.Indexer) ApprovalTaskLister {
-	return &approvalTaskLister{indexer: indexer}
-}
-
-// List lists all ApprovalTasks in the indexer.
-func (s *approvalTaskLister) List(selector labels.Selector) (ret []*v1alpha1.ApprovalTask, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.ApprovalTask))
-	})
-	return ret, err
+	return &approvalTaskLister{listers.New[*approvaltaskv1alpha1.ApprovalTask](indexer, approvaltaskv1alpha1.Resource("approvaltask"))}
 }
 
 // ApprovalTasks returns an object that can list and get ApprovalTasks.
 func (s *approvalTaskLister) ApprovalTasks(namespace string) ApprovalTaskNamespaceLister {
-	return approvalTaskNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return approvalTaskNamespaceLister{listers.NewNamespaced[*approvaltaskv1alpha1.ApprovalTask](s.ResourceIndexer, namespace)}
 }
 
 // ApprovalTaskNamespaceLister helps list and get ApprovalTasks.
@@ -64,36 +56,15 @@ func (s *approvalTaskLister) ApprovalTasks(namespace string) ApprovalTaskNamespa
 type ApprovalTaskNamespaceLister interface {
 	// List lists all ApprovalTasks in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.ApprovalTask, err error)
+	List(selector labels.Selector) (ret []*approvaltaskv1alpha1.ApprovalTask, err error)
 	// Get retrieves the ApprovalTask from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha1.ApprovalTask, error)
+	Get(name string) (*approvaltaskv1alpha1.ApprovalTask, error)
 	ApprovalTaskNamespaceListerExpansion
 }
 
 // approvalTaskNamespaceLister implements the ApprovalTaskNamespaceLister
 // interface.
 type approvalTaskNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all ApprovalTasks in the indexer for a given namespace.
-func (s approvalTaskNamespaceLister) List(selector labels.Selector) (ret []*v1alpha1.ApprovalTask, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.ApprovalTask))
-	})
-	return ret, err
-}
-
-// Get retrieves the ApprovalTask from the indexer for a given namespace and name.
-func (s approvalTaskNamespaceLister) Get(name string) (*v1alpha1.ApprovalTask, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1alpha1.Resource("approvaltask"), name)
-	}
-	return obj.(*v1alpha1.ApprovalTask), nil
+	listers.ResourceIndexer[*approvaltaskv1alpha1.ApprovalTask]
 }

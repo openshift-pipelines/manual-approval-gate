@@ -18,6 +18,7 @@ type Params struct {
 	Cls      *cli.Clients
 	Dynamic  dynamic.Interface
 	Username string
+	Groups   []string
 }
 
 func (p *Params) SetNamespace(ns string) {
@@ -42,8 +43,8 @@ func (p *Params) KubeConfigPath() string {
 	return p.kubeCfg
 }
 
-func (p *Params) GetUserInfo() (string, error) {
-	return p.Username, nil
+func (p *Params) GetUserInfo() (string, []string, error) {
+	return p.Username, p.Groups, nil
 }
 
 func (p *Params) approvalTaskClient() (versioned.Interface, error) {
