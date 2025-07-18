@@ -144,10 +144,11 @@ func TestCreateApprovalTask(t *testing.T) {
 	expectedNames := []string{"foo", "bar", "tekton"}
 	for _, approver := range approvalTask.Spec.Approvers {
 		assert.Contains(t, expectedNames, approver.Name, "Approval name should be in the expected list")
-		assert.Equal(t, "pending", approver.Input, "Approval InputValue should be 'wait'")
+		assert.Equal(t, "pending", approver.Input, "Approval InputValue should be 'pending'")
+		assert.Equal(t, "User", approver.Type, "Approval Type should be 'User'")
 	}
 
-	assert.Equal(t, approvalTask.Status.State, "pending", "ApprovalState should be in `wait`")
+	assert.Equal(t, "pending", approvalTask.Status.State, "ApprovalState should be 'pending'")
 }
 
 func TestCreateApprovalTaskWithoutApprovalsRequiredProvided(t *testing.T) {
@@ -362,6 +363,7 @@ func TestUpdateApprovalTaskWithNoApprovalsProvided(t *testing.T) {
 	approvals := v1alpha1.ApproverDetails{
 		Name:  "foo",
 		Input: "approve",
+		Type:  "User",
 	}
 	approvalTask.Spec.Approvers = append(approvalTask.Spec.Approvers, approvals)
 
@@ -421,14 +423,17 @@ func TestApprovalTaskHasTrueInputWithAllApprovals(t *testing.T) {
 				{
 					Name:  "foo",
 					Input: "pending",
+					Type:  "User",
 				},
 				{
 					Name:  "bar",
 					Input: "approve",
+					Type:  "User",
 				},
 				{
 					Name:  "tekton",
 					Input: "approve",
+					Type:  "User",
 				},
 			},
 			NumberOfApprovalsRequired: 2,
@@ -468,4 +473,61 @@ func TestApprovalTaskHasTrueInputWithSomeApprovals(t *testing.T) {
 
 	got := approvalTaskHasTrueInput(approvaltask)
 	assert.Equal(t, false, got)
+}
+
+func TestApprovalTaskHasTrueInputWithGroup(t *testing.T) {
+	// Test case with Group that has individual user approvals
+	approvalTask := v1alpha1.ApprovalTask{
+		Spec: v1alpha1.ApprovalTaskSpec{
+			NumberOfApprovalsRequired: 2,
+			Approvers: []v1alpha1.ApproverDetails{
+				{
+					Name:  "user1",
+					Input: "pending",
+					Type:  "User",
+				},
+				{
+					Name:  "dev-team",
+					Input: "approve",
+					Type:  "Group",
+					Users: []v1alpha1.UserDetails{
+						{
+							Name:  "alice",
+							Input: "approve",
+						},
+						{
+							Name:  "bob",
+							Input: "approve",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result := approvalTaskHasTrueInput(approvalTask)
+	assert.True(t, result, "Should return true when group has 2 approvals and requirement is 2")
+}
+
+func TestApprovalTaskHasFalseInput(t *testing.T) {
+	// Test case with rejection
+	approvalTask := v1alpha1.ApprovalTask{
+		Spec: v1alpha1.ApprovalTaskSpec{
+			Approvers: []v1alpha1.ApproverDetails{
+				{
+					Name:  "user1",
+					Input: "approve",
+					Type:  "User",
+				},
+				{
+					Name:  "user2",
+					Input: "reject",
+					Type:  "User",
+				},
+			},
+		},
+	}
+
+	result := approvalTaskHasFalseInput(approvalTask)
+	assert.True(t, result, "Should return true when any approver has rejected")
 }

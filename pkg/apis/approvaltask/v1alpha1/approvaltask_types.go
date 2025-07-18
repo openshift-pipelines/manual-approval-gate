@@ -46,10 +46,17 @@ type ApprovalTaskSpec struct {
 	Description               string            `json:"description,omitempty"`
 }
 
+type UserDetails struct {
+	Name  string `json:"name"`
+	Input string `json:"input"`
+}
+
 type ApproverDetails struct {
-	Name    string `json:"name"`
-	Input   string `json:"input"`
-	Message string `json:"message,omitempty"`
+	Name    string        `json:"name"`
+	Input   string        `json:"input"`
+	Message string        `json:"message,omitempty"`
+	Type    string        `json:"type"`
+	Users   []UserDetails `json:"users,omitempty"`
 }
 
 type ApprovalTaskStatus struct {
@@ -61,10 +68,18 @@ type ApprovalTaskStatus struct {
 	StartTime *metav1.Time `json:"startTime,omitempty"`
 }
 
-type ApproverState struct {
+type GroupMemberState struct {
 	Name     string `json:"name"`
 	Response string `json:"response"`
 	Message  string `json:"message,omitempty"`
+}
+
+type ApproverState struct {
+	Name         string             `json:"name"`
+	Response     string             `json:"response"`
+	Message      string             `json:"message,omitempty"`
+	Type         string             `json:"type"`
+	GroupMembers []GroupMemberState `json:"groupMembers,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
