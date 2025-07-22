@@ -28,10 +28,12 @@ func TestListApprovalTasks(t *testing.T) {
 					{
 						Name:  "tekton",
 						Input: "reject",
+						Type:  "User",
 					},
 					{
 						Name:  "cli",
 						Input: "pending",
+						Type:  "User",
 					},
 				},
 				NumberOfApprovalsRequired: 2,
@@ -44,6 +46,7 @@ func TestListApprovalTasks(t *testing.T) {
 				ApproversResponse: []v1alpha1.ApproverState{
 					{
 						Name:     "tekton",
+						Type:     "User",
 						Response: "rejected",
 					},
 				},
@@ -60,10 +63,12 @@ func TestListApprovalTasks(t *testing.T) {
 					{
 						Name:  "tekton",
 						Input: "approve",
+						Type:  "User",
 					},
 					{
 						Name:  "cli",
 						Input: "approve",
+						Type:  "User",
 					},
 				},
 				NumberOfApprovalsRequired: 2,
@@ -76,11 +81,13 @@ func TestListApprovalTasks(t *testing.T) {
 				ApproversResponse: []v1alpha1.ApproverState{
 					{
 						Name:     "tekton",
-						Response: "approve",
+						Type:     "User",
+						Response: "approved",
 					},
 					{
 						Name:     "cli",
-						Response: "approve",
+						Type:     "User",
+						Response: "approved",
 					},
 				},
 				State: "approved",
@@ -96,10 +103,12 @@ func TestListApprovalTasks(t *testing.T) {
 					{
 						Name:  "tekton",
 						Input: "pending",
+						Type:  "User",
 					},
 					{
 						Name:  "cli",
 						Input: "pending",
+						Type:  "User",
 					},
 				},
 				NumberOfApprovalsRequired: 2,
@@ -125,10 +134,12 @@ func TestListApprovalTasks(t *testing.T) {
 					{
 						Name:  "tekton",
 						Input: "reject",
+						Type:  "User",
 					},
 					{
 						Name:  "cli",
 						Input: "pending",
+						Type:  "User",
 					},
 				},
 				NumberOfApprovalsRequired: 2,
@@ -141,6 +152,7 @@ func TestListApprovalTasks(t *testing.T) {
 				ApproversResponse: []v1alpha1.ApproverState{
 					{
 						Name:     "tekton",
+						Type:     "User",
 						Response: "rejected",
 					},
 				},
@@ -157,10 +169,12 @@ func TestListApprovalTasks(t *testing.T) {
 					{
 						Name:  "tekton",
 						Input: "approve",
+						Type:  "User",
 					},
 					{
 						Name:  "cli",
 						Input: "approve",
+						Type:  "User",
 					},
 				},
 				NumberOfApprovalsRequired: 2,
@@ -173,11 +187,13 @@ func TestListApprovalTasks(t *testing.T) {
 				ApproversResponse: []v1alpha1.ApproverState{
 					{
 						Name:     "tekton",
-						Response: "approve",
+						Type:     "User",
+						Response: "approved",
 					},
 					{
 						Name:     "cli",
-						Response: "approve",
+						Type:     "User",
+						Response: "approved",
 					},
 				},
 				State: "approved",
@@ -193,10 +209,12 @@ func TestListApprovalTasks(t *testing.T) {
 					{
 						Name:  "tekton",
 						Input: "pending",
+						Type:  "User",
 					},
 					{
 						Name:  "cli",
 						Input: "pending",
+						Type:  "User",
 					},
 				},
 				NumberOfApprovalsRequired: 2,
@@ -278,6 +296,159 @@ func TestListApprovalTasks(t *testing.T) {
 		})
 	}
 
+}
+
+// Test individual functions for group functionality
+func TestPendingApprovalsWithGroups(t *testing.T) {
+	tests := []struct {
+		name     string
+		at       *v1alpha1.ApprovalTask
+		expected int
+	}{
+		{
+			name: "group with multiple members responded",
+			at: &v1alpha1.ApprovalTask{
+				Spec: v1alpha1.ApprovalTaskSpec{
+					NumberOfApprovalsRequired: 3,
+				},
+				Status: v1alpha1.ApprovalTaskStatus{
+					ApproversResponse: []v1alpha1.ApproverState{
+						{
+							Name: "admin-group",
+							Type: "Group",
+							GroupMembers: []v1alpha1.GroupMemberState{
+								{Name: "alice", Response: "approved"},
+								{Name: "bob", Response: "rejected"},
+							},
+						},
+					},
+				},
+			},
+			expected: 1, // 3 required - 2 responded = 1 pending
+		},
+		{
+			name: "mixed user and group responses",
+			at: &v1alpha1.ApprovalTask{
+				Spec: v1alpha1.ApprovalTaskSpec{
+					NumberOfApprovalsRequired: 4,
+				},
+				Status: v1alpha1.ApprovalTaskStatus{
+					ApproversResponse: []v1alpha1.ApproverState{
+						{
+							Name:     "direct-user",
+							Type:     "User",
+							Response: "approved",
+						},
+						{
+							Name: "dev-team",
+							Type: "Group",
+							GroupMembers: []v1alpha1.GroupMemberState{
+								{Name: "charlie", Response: "approved"},
+								{Name: "david", Response: "approved"},
+							},
+						},
+					},
+				},
+			},
+			expected: 1, // 4 required - 3 responded = 1 pending
+		},
+		{
+			name: "no responses",
+			at: &v1alpha1.ApprovalTask{
+				Spec: v1alpha1.ApprovalTaskSpec{
+					NumberOfApprovalsRequired: 2,
+				},
+				Status: v1alpha1.ApprovalTaskStatus{
+					ApproversResponse: []v1alpha1.ApproverState{},
+				},
+			},
+			expected: 2, // 2 required - 0 responded = 2 pending
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := pendingApprovals(tt.at)
+			if result != tt.expected {
+				t.Errorf("pendingApprovals() = %d, expected %d", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestRejectedWithGroups(t *testing.T) {
+	tests := []struct {
+		name     string
+		at       *v1alpha1.ApprovalTask
+		expected int
+	}{
+		{
+			name: "group with multiple rejections",
+			at: &v1alpha1.ApprovalTask{
+				Status: v1alpha1.ApprovalTaskStatus{
+					ApproversResponse: []v1alpha1.ApproverState{
+						{
+							Name: "qa-team",
+							Type: "Group",
+							GroupMembers: []v1alpha1.GroupMemberState{
+								{Name: "tester1", Response: "rejected"},
+								{Name: "tester2", Response: "rejected"},
+								{Name: "tester3", Response: "approved"},
+							},
+						},
+					},
+				},
+			},
+			expected: 2, // 2 rejections from group members
+		},
+		{
+			name: "mixed user and group rejections",
+			at: &v1alpha1.ApprovalTask{
+				Status: v1alpha1.ApprovalTaskStatus{
+					ApproversResponse: []v1alpha1.ApproverState{
+						{
+							Name:     "direct-user",
+							Type:     "User",
+							Response: "rejected",
+						},
+						{
+							Name: "admin-group",
+							Type: "Group",
+							GroupMembers: []v1alpha1.GroupMemberState{
+								{Name: "admin1", Response: "rejected"},
+								{Name: "admin2", Response: "approved"},
+							},
+						},
+					},
+				},
+			},
+			expected: 2, // 1 direct user + 1 group member rejected = 2
+		},
+		{
+			name: "no rejections",
+			at: &v1alpha1.ApprovalTask{
+				Status: v1alpha1.ApprovalTaskStatus{
+					ApproversResponse: []v1alpha1.ApproverState{
+						{
+							Name:     "user1",
+							Type:     "User",
+							Response: "approved",
+						},
+					},
+				},
+			},
+			expected: 0, // no rejections
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := rejected(tt.at)
+			if result != tt.expected {
+				t.Errorf("rejected() = %d, expected %d", result, tt.expected)
+			}
+		})
+	}
 }
 
 func command(t *testing.T, approvaltasks []*v1alpha1.ApprovalTask, ns []*corev1.Namespace, dc dynamic.Interface) *cobra.Command {
