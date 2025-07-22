@@ -12,9 +12,11 @@ You can refer the ApprovalTask in the pipeline similar to how we refer Task toda
   params:
    - name: approvers
      value:
-    	- foo
-    	- bar
-    	- tekton
+    	- foo # individual user
+    	- bar 
+    	- tekton 
+        - group:tekton  # users in group
+        - group:example  
    - name: numberOfApprovalsRequired
      value: 2
    - name: description
@@ -33,6 +35,15 @@ You can refer the ApprovalTask in the pipeline similar to how we refer Task toda
   * If any one approver rejects the approval task controller will mark the approvalState as rejected and then the pipelinerun will fail 
   * If a user approves for the first time and still approvalsRequired limit is not reached i.e. approvalState is in pending state then user can still change his input and mark the approval task as reject
   
+* Support for approver groups
+  * Define groups of users as approvers, using the group:<groupName> syntax.
+
+* Individual & Group Approvers
+  * Mix single users (alice, bob) and groups (group:dev-team, group:qa-team) in the approval list.
+
+* Approval messages
+  * Approvers can add a custom message when approving or rejecting.
+
 * A webhook is configured while you install manual-approval-gate which will take care of all the checks which are required while the approver approves/rejects the approvalTask
 * Users can add timeout to the approvalTask
 * As of today once the timeout exceeds, approvalTask state is marked as rejected and correspondingly customrun and pipelinerun will be failed
