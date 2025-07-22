@@ -28,10 +28,12 @@ func TestDescribeApprovalTask(t *testing.T) {
 					{
 						Name:  "tekton",
 						Input: "reject",
+						Type:  "User",
 					},
 					{
 						Name:  "cli",
 						Input: "pending",
+						Type:  "User",
 					},
 				},
 				NumberOfApprovalsRequired: 2,
@@ -44,6 +46,7 @@ func TestDescribeApprovalTask(t *testing.T) {
 				ApproversResponse: []v1alpha1.ApproverState{
 					{
 						Name:     "tekton",
+						Type:     "User",
 						Response: "rejected",
 					},
 				},
@@ -96,6 +99,174 @@ func TestDescribeApprovalTaskNotFound(t *testing.T) {
 	expectedOutput := "Error: failed to Get ApprovalTasks at-1 from foo namespace\n"
 	if output != expectedOutput {
 		t.Errorf("Expected output to be %q, but got %q", expectedOutput, output)
+	}
+}
+
+func TestDescribeApprovalTaskWithGroups(t *testing.T) {
+	approvaltasks := []*v1alpha1.ApprovalTask{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "at-group",
+				Namespace: "foo",
+			},
+			Spec: v1alpha1.ApprovalTaskSpec{
+				Approvers: []v1alpha1.ApproverDetails{
+					{
+						Name:  "admin-group",
+						Input: "approve",
+						Type:  "Group",
+					},
+					{
+						Name:  "dev-team",
+						Input: "reject",
+						Type:  "Group",
+					},
+					{
+						Name:  "alice",
+						Input: "pending",
+						Type:  "User",
+					},
+				},
+				NumberOfApprovalsRequired: 3,
+			},
+			Status: v1alpha1.ApprovalTaskStatus{
+				Approvers: []string{
+					"admin-group",
+					"dev-team",
+					"alice",
+				},
+				ApproversResponse: []v1alpha1.ApproverState{
+					{
+						Name:     "admin-group",
+						Type:     "Group",
+						Response: "approved",
+						GroupMembers: []v1alpha1.GroupMemberState{
+							{
+								Name:     "bob",
+								Response: "approved",
+								Message:  "LGTM",
+							},
+							{
+								Name:     "charlie",
+								Response: "approved",
+							},
+						},
+					},
+					{
+						Name:     "dev-team",
+						Type:     "Group",
+						Response: "rejected",
+						GroupMembers: []v1alpha1.GroupMemberState{
+							{
+								Name:     "david",
+								Response: "rejected",
+								Message:  "Needs more testing",
+							},
+						},
+					},
+				},
+				State: "approved",
+			},
+		},
+	}
+
+	ns := []*corev1.Namespace{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "namespace",
+			},
+		},
+	}
+
+	dc, err := testDynamic.Client(
+		cb.UnstructuredV1alpha1(approvaltasks[0], "v1alpha1"),
+	)
+	if err != nil {
+		t.Errorf("unable to create dynamic client: %v", err)
+	}
+
+	c := command(t, approvaltasks, ns, dc)
+	args := []string{"at-group", "-n", "foo"}
+
+	output, err := test.ExecuteCommand(c, args...)
+	golden.Assert(t, output, strings.ReplaceAll(fmt.Sprintf("%s.golden", t.Name()), "/", "-"))
+}
+
+// Test individual functions for group functionality
+func TestPendingApprovalsWithGroups(t *testing.T) {
+	tests := []struct {
+		name     string
+		at       *v1alpha1.ApprovalTask
+		expected int
+	}{
+		{
+			name: "group with multiple members responded",
+			at: &v1alpha1.ApprovalTask{
+				Spec: v1alpha1.ApprovalTaskSpec{
+					NumberOfApprovalsRequired: 3,
+				},
+				Status: v1alpha1.ApprovalTaskStatus{
+					ApproversResponse: []v1alpha1.ApproverState{
+						{
+							Name: "admin-group",
+							Type: "Group",
+							GroupMembers: []v1alpha1.GroupMemberState{
+								{Name: "alice", Response: "approved"},
+								{Name: "bob", Response: "rejected"},
+							},
+						},
+					},
+				},
+			},
+			expected: 1, // 3 required - 2 responded = 1 pending
+		},
+		{
+			name: "mixed user and group responses",
+			at: &v1alpha1.ApprovalTask{
+				Spec: v1alpha1.ApprovalTaskSpec{
+					NumberOfApprovalsRequired: 4,
+				},
+				Status: v1alpha1.ApprovalTaskStatus{
+					ApproversResponse: []v1alpha1.ApproverState{
+						{
+							Name:     "direct-user",
+							Type:     "User",
+							Response: "approved",
+						},
+						{
+							Name: "dev-team",
+							Type: "Group",
+							GroupMembers: []v1alpha1.GroupMemberState{
+								{Name: "charlie", Response: "approved"},
+								{Name: "david", Response: "approved"},
+							},
+						},
+					},
+				},
+			},
+			expected: 1, // 4 required - 3 responded = 1 pending
+		},
+		{
+			name: "no responses",
+			at: &v1alpha1.ApprovalTask{
+				Spec: v1alpha1.ApprovalTaskSpec{
+					NumberOfApprovalsRequired: 2,
+				},
+				Status: v1alpha1.ApprovalTaskStatus{
+					ApproversResponse: []v1alpha1.ApproverState{},
+				},
+			},
+			expected: 2, // 2 required - 0 responded = 2 pending
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := pendingApprovals(tt.at)
+			if result != tt.expected {
+				t.Errorf("pendingApprovals() = %d, expected %d", result, tt.expected)
+			}
+		})
 	}
 }
 
