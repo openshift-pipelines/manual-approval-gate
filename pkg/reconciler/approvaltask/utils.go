@@ -259,6 +259,8 @@ func createApprovalTask(ctx context.Context, approvaltaskClientSet versioned.Int
 		State:             pendingState,
 		Approvers:         users,
 		ApproversResponse: []v1alpha1.ApproverState{},
+		ApprovalsRequired: numberOfApprovalsRequired,
+		ApprovalsReceived: 0, // Initially no approvals received
 	}
 
 	at.Status = status
@@ -302,6 +304,29 @@ func approvalTaskHasTrueInput(approvalTask v1alpha1.ApprovalTask) bool {
 	}
 
 	return len(approvedUsers) >= requiredApprovals
+}
+
+func countApprovalsReceived(approvalTask v1alpha1.ApprovalTask) int {
+	// Count unique users who have approved
+	approvedUsers := make(map[string]bool)
+
+	for _, approver := range approvalTask.Spec.Approvers {
+		if approver.Input != hasApproved {
+			continue
+		}
+
+		if approver.Type == "User" {
+			approvedUsers[approver.Name] = true
+		} else if approver.Type == "Group" {
+			for _, user := range approver.Users {
+				if user.Input == hasApproved {
+					approvedUsers[user.Name] = true
+				}
+			}
+		}
+	}
+
+	return len(approvedUsers)
 }
 
 func (r *Reconciler) checkIfUpdateRequired(ctx context.Context, approvalTask v1alpha1.ApprovalTask, run *v1beta1.CustomRun) error {
@@ -413,6 +438,10 @@ func updateApprovalState(ctx context.Context, approvaltaskClientSet versioned.In
 
 		// Update the ApprovedBy list
 		approvalTask.Status.ApproversResponse = filteredApprovedBy
+
+		// Update the approvals count fields
+		approvalTask.Status.ApprovalsRequired = approvalTask.Spec.NumberOfApprovalsRequired
+		approvalTask.Status.ApprovalsReceived = countApprovalsReceived(*approvalTask)
 
 		// Update the approvalState
 		// Reject scenario: Check if there is one false and if found mark the approvalstate to false

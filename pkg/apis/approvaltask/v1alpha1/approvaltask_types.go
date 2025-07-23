@@ -66,6 +66,10 @@ type ApprovalTaskStatus struct {
 	ApproversResponse []ApproverState `json:"approversResponse,omitempty"`
 	// StartTime is the time the build is actually started.
 	StartTime *metav1.Time `json:"startTime,omitempty"`
+	// ApprovalsRequired is the number of approvals required for the task
+	ApprovalsRequired int `json:"approvalsRequired,omitempty"`
+	// ApprovalsReceived is the number of approvals received so far
+	ApprovalsReceived int `json:"approvalsReceived,omitempty"`
 }
 
 type GroupMemberState struct {
