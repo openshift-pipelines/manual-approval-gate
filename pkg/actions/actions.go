@@ -101,7 +101,13 @@ func Update(gr schema.GroupVersionResource, c *cli.Clients, opts *cli.Options) e
 
 func update(gvr *schema.GroupVersionResource, dynamic dynamic.Interface, at *v1alpha1.ApprovalTask, opts *cli.Options) error {
 	for i, approver := range at.Spec.Approvers {
-		switch approver.Type {
+		// Handle backward compatibility - default to "User" if Type is missing
+		approverType := approver.Type
+		if approverType == "" {
+			approverType = "User"
+		}
+
+		switch approverType {
 		case "User":
 			if approver.Name == opts.Username {
 				// return true

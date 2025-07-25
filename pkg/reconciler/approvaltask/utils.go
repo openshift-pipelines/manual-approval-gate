@@ -292,9 +292,15 @@ func approvalTaskHasTrueInput(approvalTask v1alpha1.ApprovalTask) bool {
 			continue
 		}
 
-		if approver.Type == "User" {
+		// Handle backward compatibility - default to "User" if Type is missing
+		approverType := approver.Type
+		if approverType == "" {
+			approverType = "User"
+		}
+
+		if approverType == "User" {
 			approvedUsers[approver.Name] = true
-		} else if approver.Type == "Group" {
+		} else if approverType == "Group" {
 			for _, user := range approver.Users {
 				if user.Input == hasApproved {
 					approvedUsers[user.Name] = true
@@ -315,9 +321,15 @@ func countApprovalsReceived(approvalTask v1alpha1.ApprovalTask) int {
 			continue
 		}
 
-		if approver.Type == "User" {
+		// Handle backward compatibility - default to "User" if Type is missing
+		approverType := approver.Type
+		if approverType == "" {
+			approverType = "User"
+		}
+
+		if approverType == "User" {
 			approvedUsers[approver.Name] = true
-		} else if approver.Type == "Group" {
+		} else if approverType == "Group" {
 			for _, user := range approver.Users {
 				if user.Input == hasApproved {
 					approvedUsers[user.Name] = true
@@ -376,8 +388,14 @@ func updateApprovalState(ctx context.Context, approvaltaskClientSet versioned.In
 				response = rejectedState
 			}
 
+			// Handle backward compatibility - default to "User" if Type is missing
+			approverType := approver.Type
+			if approverType == "" {
+				approverType = "User"
+			}
+
 			// If it's a group, iterate over the users
-			if approver.Type == "Group" {
+			if approverType == "Group" {
 				groupMembers := []v1alpha1.GroupMemberState{}
 				groupResponse := ""
 				hasApprovals := false
@@ -418,7 +436,7 @@ func updateApprovalState(ctx context.Context, approvaltaskClientSet versioned.In
 						GroupMembers: groupMembers,
 					}
 				}
-			} else if approver.Type == "User" {
+			} else if approverType == "User" {
 				currentApprovers[approver.Name] = v1alpha1.ApproverState{
 					Name:     approver.Name,
 					Type:     "User",

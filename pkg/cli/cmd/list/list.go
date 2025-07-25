@@ -45,9 +45,15 @@ func pendingApprovals(at *v1alpha1.ApprovalTask) int {
 	respondedUsers := make(map[string]bool)
 
 	for _, approver := range at.Status.ApproversResponse {
-		if approver.Type == "User" {
+		// Handle backward compatibility - default to "User" if Type is missing
+		approverType := approver.Type
+		if approverType == "" {
+			approverType = "User"
+		}
+
+		if approverType == "User" {
 			respondedUsers[approver.Name] = true
-		} else if approver.Type == "Group" {
+		} else if approverType == "Group" {
 			// Count individual group members who have responded
 			for _, member := range approver.GroupMembers {
 				if member.Response == "approved" || member.Response == "rejected" {
@@ -65,12 +71,18 @@ func rejected(at *v1alpha1.ApprovalTask) int {
 	rejectedUsers := make(map[string]bool)
 
 	for _, approver := range at.Status.ApproversResponse {
-		if approver.Type == "User" && approver.Response == "rejected" {
+		// Handle backward compatibility - default to "User" if Type is missing
+		approverType := approver.Type
+		if approverType == "" {
+			approverType = "User"
+		}
+
+		if approverType == "User" && approver.Response == "rejected" {
 			if !rejectedUsers[approver.Name] {
 				rejectedUsers[approver.Name] = true
 				count++
 			}
-		} else if approver.Type == "Group" {
+		} else if approverType == "Group" {
 			// Count individual group members who have rejected
 			for _, member := range approver.GroupMembers {
 				if member.Response == "rejected" {
