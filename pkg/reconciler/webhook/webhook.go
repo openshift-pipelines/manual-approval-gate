@@ -291,11 +291,17 @@ func hasOnlyInputChanged(oldObjApprover, newObjApprover v1alpha1.ApproverDetails
 func IsUserApprovalChanged(oldObjApprovers, newObjApprovers []v1alpha1.ApproverDetails, request *admissionv1.AdmissionRequest) (bool, error) {
 	currentUser := request.UserInfo.Username
 	for i, approver := range oldObjApprovers {
-		if approver.Name == currentUser && approver.Type == "User" {
+		// Handle backward compatibility - default to "User" if Type is missing
+		approverType := approver.Type
+		if approverType == "" {
+			approverType = "User"
+		}
+
+		if approver.Name == currentUser && approverType == "User" {
 			return hasOnlyInputChanged(approver, newObjApprovers[i])
 		}
 
-		if approver.Type == "Group" {
+		if approverType == "Group" {
 			// Check if current user is a member of this group
 			isUserInGroup := false
 
@@ -404,13 +410,19 @@ func IsUserApprovalChanged(oldObjApprovers, newObjApprovers []v1alpha1.ApproverD
 func CheckOtherUsersForInvalidChanges(oldObjApprovers, newObjApprover []v1alpha1.ApproverDetails, request *admissionv1.AdmissionRequest) bool {
 	currentUser := request.UserInfo.Username
 	for i, approver := range oldObjApprovers {
-		if approver.Type == "User" && approver.Name != currentUser {
+		// Handle backward compatibility - default to "User" if Type is missing
+		approverType := approver.Type
+		if approverType == "" {
+			approverType = "User"
+		}
+
+		if approverType == "User" && approver.Name != currentUser {
 			if oldObjApprovers[i].Input != newObjApprover[i].Input {
 				return false
 			}
 		}
 
-		if approver.Type == "Group" {
+		if approverType == "Group" {
 			// Check if current user is a member of this group
 			isUserInGroup := false
 
