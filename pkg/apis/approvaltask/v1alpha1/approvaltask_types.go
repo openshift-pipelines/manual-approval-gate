@@ -86,6 +86,15 @@ type ApproverState struct {
 	GroupMembers []GroupMemberState `json:"groupMembers,omitempty"`
 }
 
+// DefaultedApproverType returns "User" if the type field is empty (for v0.6.0 compatibility),
+// otherwise returns the provided type.
+func DefaultedApproverType(approverType string) string {
+	if approverType == "" {
+		return "User"
+	}
+	return approverType
+}
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // ApprovalTaskList contains a list of ApprovalTasks
