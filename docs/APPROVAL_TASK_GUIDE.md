@@ -36,13 +36,13 @@ spec:
     message: ""
   - name: dev-team
     type: Group
-    input: pending
+    input: approve
     message: ""
     users:
     - name: charlie
-      input: pending
+      input: approve
     - name: diana
-      input: pending
+      input: approve
   numberOfApprovalsRequired: 2
   description: "Approve deployment to production environment"
 status:
@@ -140,15 +140,15 @@ spec:
   approvers:
   - name: dev-team
     type: Group
-    input: pending
-    users:
+    input: reject
+    users:           # Users from the group are only added if the approve/reject
     - name: alice
-      input: pending
+      input: approve
     - name: bob
-      input: pending
+      input: approve
     - name: charlie
-      input: pending
-  numberOfApprovalsRequired: 1
+      input: reject
+  numberOfApprovalsRequired: 3
   description: "Any member of dev-team can approve"
 ```
 
@@ -172,17 +172,12 @@ spec:
     input: pending
     users:
     - name: tester1
-      input: pending
+      input: approve
     - name: tester2
-      input: pending
+      input: approve
   - name: security-team
     type: Group
     input: pending
-    users:
-    - name: security-lead
-      input: pending
-    - name: security-analyst
-      input: pending
   numberOfApprovalsRequired: 3
   description: "Requires tech lead + QA team member + security team member"
 ```
@@ -246,11 +241,7 @@ status:
     message: "LGTM for production deployment"
   - name: bob
     type: User
-    response: pending
-  - name: security-team
-    type: Group
-    response: pending
-    groupMembers: []
+    response: approved
 ```
 
 ### Approved State

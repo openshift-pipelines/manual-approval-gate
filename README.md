@@ -15,7 +15,7 @@ You can refer the ApprovalTask in the pipeline similar to how we refer Task toda
     	- foo # individual user
     	- bar 
     	- tekton 
-        - group:tekton  # users in group
+        - group:tekton  # groupName
         - group:example  
    - name: numberOfApprovalsRequired
      value: 2
