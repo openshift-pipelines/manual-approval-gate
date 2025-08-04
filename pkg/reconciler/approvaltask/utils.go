@@ -365,65 +365,78 @@ func updateApprovalState(ctx context.Context, approvaltaskClientSet versioned.In
 	// Temp map to hold current approvers with approve and reject input
 	currentApprovers := make(map[string]v1alpha1.ApproverState)
 	approvalTask.Status.ApproversResponse = []v1alpha1.ApproverState{}
-	// Populate the map with approvers having input approve/reject
-
+	// Track users who have already been processed as individual approvers
+	// to avoid duplicate entries when they are also group members
+	processedUserApprovers := make(map[string]bool)
+	
+	// First pass: Process all User type approvers
 	for _, approver := range approvalTask.Spec.Approvers {
-		if approver.Input == hasApproved || approver.Input == hasRejected {
+		if (approver.Input == hasApproved || approver.Input == hasRejected) && v1alpha1.DefaultedApproverType(approver.Type) == "User" {
 			response := ""
 			if approver.Input == hasApproved {
 				response = approvedState
 			} else if approver.Input == hasRejected {
 				response = rejectedState
 			}
+			
+			currentApprovers[approver.Name] = v1alpha1.ApproverState{
+				Name:     approver.Name,
+				Type:     "User",
+				Response: response,
+				Message:  approver.Message,
+			}
+			// Mark this user as processed to avoid duplication in group processing
+			processedUserApprovers[approver.Name] = true
+		}
+	}
+	
+	// Second pass: Process Group type approvers, excluding users already processed as individuals
+	for _, approver := range approvalTask.Spec.Approvers {
+		if (approver.Input == hasApproved || approver.Input == hasRejected) && v1alpha1.DefaultedApproverType(approver.Type) == "Group" {
+			groupMembers := []v1alpha1.GroupMemberState{}
+			groupResponse := ""
+			hasApprovals := false
+			hasRejections := false
 
-			// If it's a group, iterate over the users
-			if v1alpha1.DefaultedApproverType(approver.Type) == "Group" {
-				groupMembers := []v1alpha1.GroupMemberState{}
-				groupResponse := ""
-				hasApprovals := false
-				hasRejections := false
-
-				for _, user := range approver.Users {
-					userResponse := ""
-					if user.Input == hasApproved {
-						userResponse = approvedState
-						hasApprovals = true
-					} else if user.Input == hasRejected {
-						userResponse = rejectedState
-						hasRejections = true
-					}
-
-					if userResponse != "" {
-						groupMembers = append(groupMembers, v1alpha1.GroupMemberState{
-							Name:     user.Name,
-							Response: userResponse,
-							Message:  approver.Message, // Inherit message from group level
-						})
-					}
+			for _, user := range approver.Users {
+				// Skip users who have already been processed as individual approvers
+				// This prevents duplicate entries when a user is both an individual approver and group member
+				if processedUserApprovers[user.Name] {
+					continue
+				}
+				
+				userResponse := ""
+				if user.Input == hasApproved {
+					userResponse = approvedState
+					hasApprovals = true
+				} else if user.Input == hasRejected {
+					userResponse = rejectedState
+					hasRejections = true
 				}
 
-				// Determine group response based on individual user responses
-				if hasRejections {
-					groupResponse = rejectedState
-				} else if hasApprovals {
-					groupResponse = approvedState
+				if userResponse != "" {
+					groupMembers = append(groupMembers, v1alpha1.GroupMemberState{
+						Name:     user.Name,
+						Response: userResponse,
+						Message:  approver.Message, // Inherit message from group level
+					})
 				}
+			}
 
-				if groupResponse != "" {
-					currentApprovers[approver.Name] = v1alpha1.ApproverState{
-						Name:         approver.Name,
-						Type:         "Group",
-						Response:     groupResponse,
-						Message:      approver.Message,
-						GroupMembers: groupMembers,
-					}
-				}
-			} else if v1alpha1.DefaultedApproverType(approver.Type) == "User" {
+			// Determine group response based on individual user responses
+			if hasRejections {
+				groupResponse = rejectedState
+			} else if hasApprovals {
+				groupResponse = approvedState
+			}
+
+			if groupResponse != "" {
 				currentApprovers[approver.Name] = v1alpha1.ApproverState{
-					Name:     approver.Name,
-					Type:     "User",
-					Response: response,
-					Message:  approver.Message,
+					Name:         approver.Name,
+					Type:         "Group",
+					Response:     groupResponse,
+					Message:      approver.Message,
+					GroupMembers: groupMembers,
 				}
 			}
 		}
