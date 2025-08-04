@@ -200,7 +200,7 @@ func TestRejectApprovalTask(t *testing.T) {
 			name:           "invalid username",
 			command:        command(t, approvaltasks, ns, dc, "test-user", []string{}),
 			args:           []string{"at-2", "-n", "foo"},
-			expectedOutput: "Error: failed to reject approvalTask from namespace foo: Approver: test-user, is not present in the approvers list\n",
+			expectedOutput: "Error: failed to reject approvalTask from namespace foo: approver: test-user, is not present in the approvers list\n",
 			wantError:      true,
 		},
 		{
@@ -222,7 +222,7 @@ func TestRejectApprovalTask(t *testing.T) {
 			name:           "user not in any required groups",
 			command:        command(t, approvaltasks, ns, dc, "charlie", []string{"other-group"}),
 			args:           []string{"at-group-1", "-n", "foo"},
-			expectedOutput: "Error: failed to reject approvalTask from namespace foo: Approver: charlie, is not present in the approvers list\n",
+			expectedOutput: "Error: failed to reject approvalTask from namespace foo: approver: charlie, is not present in the approvers list\n",
 			wantError:      true,
 		},
 		{
