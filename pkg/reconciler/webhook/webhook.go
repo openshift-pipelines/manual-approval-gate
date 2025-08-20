@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/openshift-pipelines/manual-approval-gate/pkg/apis/approvaltask/v1alpha1"
 	"go.uber.org/zap"
@@ -98,24 +99,43 @@ func (r *reconciler) Admit(ctx context.Context, request *admissionv1.AdmissionRe
 		logger.Error("Unhandled kind: ", gvk)
 	}
 
-	oldBytes := request.OldObject.Raw
-	var oldObj v1alpha1.ApprovalTask
-	if len(oldBytes) != 0 {
-		oldDecoder := json.NewDecoder(bytes.NewBuffer(oldBytes))
-		if r.disallowUnknownFields {
-			oldDecoder.DisallowUnknownFields()
+	// Decode new object 
+	newObj, err := r.decodeNewObject(newBytes)
+	if err != nil {
+		return webhook.MakeErrorStatus("cannot decode incoming new object: %v", err)
+	}
+
+	// Validate structural requirements 
+	if err := validateApprovalTask(newObj, ctx); err != nil {
+		return webhook.MakeErrorStatus("validation failed: %v", err)
+	}
+
+	if request.Operation == "CREATE" {
+		// For CREATE operations, ensure all approver inputs are set to "pending"
+		if err := validateApproverInputsForCreate(newObj); err != nil {
+			return webhook.MakeErrorStatus("validation failed: %v", err)
 		}
-		if err := oldDecoder.Decode(&oldObj); err != nil {
-			return webhook.MakeErrorStatus("cannot decode incoming old object: %v", err)
+		return &admissionv1.AdmissionResponse{
+			Allowed: true,
 		}
 	}
 
+	if request.Operation != "UPDATE" {
+		return webhook.MakeErrorStatus("unsupported operation: %s", request.Operation)
+	}
+
+	// Decode old object for UPDATE operations
+	oldObj, err := r.decodeOldObject(request.OldObject.Raw)
+	if err != nil {
+		return webhook.MakeErrorStatus("cannot decode incoming old object: %v", err)
+	}
+
 	// Check if approval is required by the approver
-	if !isApprovalRequired(oldObj) {
+	if !isApprovalRequired(*oldObj) {
 		return &admissionv1.AdmissionResponse{
 			Allowed: false,
 			Result: &metav1.Status{
-				Message: "ApprovalTask has already reached it's final state",
+				Message: "ApprovalTask has already reached its final state",
 			},
 		}
 	}
@@ -127,17 +147,6 @@ func (r *reconciler) Admit(ctx context.Context, request *admissionv1.AdmissionRe
 			Result: &metav1.Status{
 				Message: "User does not exist in the approval list",
 			},
-		}
-	}
-
-	var newObj v1alpha1.ApprovalTask
-	if len(newBytes) != 0 {
-		newDecoder := json.NewDecoder(bytes.NewBuffer(newBytes))
-		if r.disallowUnknownFields {
-			newDecoder.DisallowUnknownFields()
-		}
-		if err := newDecoder.Decode(&newObj); err != nil {
-			return webhook.MakeErrorStatus("cannot decode incoming new object: %v", err)
 		}
 	}
 
@@ -178,8 +187,8 @@ func (ac *reconciler) reconcileValidatingWebhook(ctx context.Context, caCert []b
 	rules := []admissionregistrationv1.RuleWithOperations{
 		{
 			Operations: []admissionregistrationv1.OperationType{
+				admissionregistrationv1.Create,
 				admissionregistrationv1.Update,
-				// admissionregistrationv1.Create,
 			},
 			Rule: admissionregistrationv1.Rule{
 				APIGroups:   []string{"openshift-pipelines.org"},
@@ -479,4 +488,201 @@ func CheckOtherUsersForInvalidChanges(oldObjApprovers, newObjApprover []v1alpha1
 	}
 
 	return true
+}
+
+// validateApprovalTask validates the complete ApprovalTask resource 
+func validateApprovalTask(approvalTask *v1alpha1.ApprovalTask, ctx context.Context) error {
+	// Validate spec
+	if err := validateApprovalTaskSpec(&approvalTask.Spec, ctx); err != nil {
+		return fmt.Errorf("spec validation failed: %w", err)
+	}
+	
+	return nil
+}
+
+// validateApprovalTaskSpec validates the ApprovalTaskSpec
+func validateApprovalTaskSpec(spec *v1alpha1.ApprovalTaskSpec, ctx context.Context) error {
+	// Validate numberOfApprovalsRequired bounds
+	if spec.NumberOfApprovalsRequired <= 0 {
+		return fmt.Errorf("numberOfApprovalsRequired: must be greater than 0, got %d", spec.NumberOfApprovalsRequired)
+	}
+
+	// Validate approvers list
+	if len(spec.Approvers) == 0 {
+		return fmt.Errorf("approvers: required field is missing")
+	}
+
+	// Validate each approver and check for duplicates
+	approverNames := make(map[string]int) // name -> index
+	for i, approver := range spec.Approvers {
+		fieldPath := fmt.Sprintf("approvers[%d]", i)
+		
+		if err := validateApprover(approver, fieldPath); err != nil {
+			return err
+		}
+		
+		// Check for duplicate approver names
+		approverKey := fmt.Sprintf("%s:%s", v1alpha1.DefaultedApproverType(approver.Type), approver.Name)
+		if existingIndex, exists := approverNames[approverKey]; exists {
+			return fmt.Errorf("%s.name: duplicate approver '%s' (also found at approvers[%d])", fieldPath, approver.Name, existingIndex)
+		}
+		approverNames[approverKey] = i
+	}
+
+	return nil
+}
+
+// validateApprover validates a single approver entry
+func validateApprover(approver v1alpha1.ApproverDetails, fieldPath string) error {
+	// Validate approver type first to determine validation rules
+	approverType := v1alpha1.DefaultedApproverType(approver.Type)
+	if approverType != "User" && approverType != "Group" {
+		return fmt.Errorf("%s.type: must be either 'User' or 'Group', got '%s'", fieldPath, approver.Type)
+	}
+
+	// Validate name format based on type (includes empty check via validateNameFormat)
+	if approverType == "User" {
+		if err := validateUserName(approver.Name); err != nil {
+			return fmt.Errorf("%s.name: %w", fieldPath, err)
+		}
+	} else if approverType == "Group" {
+		if err := validateGroupName(approver.Name); err != nil {
+			return fmt.Errorf("%s.name: %w", fieldPath, err)
+		}
+	}
+
+	// Validate input value
+	validInputs := []string{"pending", "approve", "reject"}
+	if !webhookContains(validInputs, approver.Input) {
+		return fmt.Errorf("%s.input: must be one of: %s, got '%s'", fieldPath, strings.Join(validInputs, ", "), approver.Input)
+	}
+
+	// Validate users for group type
+	if approverType == "Group" {
+		
+		// Track duplicate users within the group
+		groupUsers := make(map[string]int) // username -> index
+		for j, user := range approver.Users {
+			userFieldPath := fmt.Sprintf("%s.users[%d]", fieldPath, j)
+			
+			if strings.TrimSpace(user.Name) == "" {
+				return fmt.Errorf("%s.name: required field is missing", userFieldPath)
+			} else if err := validateUserName(user.Name); err != nil {
+				return fmt.Errorf("%s.name: %w", userFieldPath, err)
+			}
+			
+			// Check for duplicate users within the group
+			if existingIndex, exists := groupUsers[user.Name]; exists {
+				return fmt.Errorf("%s.name: duplicate user '%s' within group (also found at %s.users[%d])", userFieldPath, user.Name, fieldPath, existingIndex)
+			}
+			groupUsers[user.Name] = j
+
+			if !webhookContains(validInputs, user.Input) {
+				return fmt.Errorf("%s.input: must be one of: %s, got '%s'", userFieldPath, strings.Join(validInputs, ", "), user.Input)
+			}
+		}
+	}
+
+	return nil
+}
+
+// validateNameFormat performs common name validation checks
+func validateNameFormat(name, fieldType string) error {
+	if strings.TrimSpace(name) == "" {
+		return fmt.Errorf("%s cannot be empty", fieldType)
+	}
+	
+	// Kubernetes names cannot contain spaces
+	if strings.Contains(name, " ") {
+		return fmt.Errorf("%s cannot contain spaces", fieldType)
+	}
+	
+	return nil
+}
+
+// validateUserName validates username
+func validateUserName(name string) error {
+	// Basic empty check (spaces ARE allowed in usernames for LDAP integration)
+	if strings.TrimSpace(name) == "" {
+		return fmt.Errorf("username cannot be empty")
+	}
+	
+	if strings.HasPrefix(name, "group:") {
+		return fmt.Errorf("username cannot start with 'group:' prefix - use type: Group for group approvers")
+	}
+	
+	return nil
+}
+
+// validateGroupName validates group name format
+func validateGroupName(name string) error {
+	if err := validateNameFormat(name, "group name"); err != nil {
+		return err
+	}
+	
+	// Group names should not contain colons to avoid confusion with user prefixes
+	if strings.Contains(name, ":") {
+		return fmt.Errorf("group name cannot contain colons")
+	}
+	
+	return nil
+}
+
+// webhookContains checks if a slice contains a string
+func webhookContains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
+}
+
+// decodeNewObject decodes the incoming new object
+func (r *reconciler) decodeNewObject(newBytes []byte) (*v1alpha1.ApprovalTask, error) {
+	var newObj v1alpha1.ApprovalTask
+	if len(newBytes) != 0 {
+		newDecoder := json.NewDecoder(bytes.NewBuffer(newBytes))
+		if r.disallowUnknownFields {
+			newDecoder.DisallowUnknownFields()
+		}
+		if err := newDecoder.Decode(&newObj); err != nil {
+			return nil, err
+		}
+	}
+	return &newObj, nil
+}
+
+// decodeOldObject decodes the incoming old object
+func (r *reconciler) decodeOldObject(oldBytes []byte) (*v1alpha1.ApprovalTask, error) {
+	var oldObj v1alpha1.ApprovalTask
+	if len(oldBytes) != 0 {
+		oldDecoder := json.NewDecoder(bytes.NewBuffer(oldBytes))
+		if r.disallowUnknownFields {
+			oldDecoder.DisallowUnknownFields()
+		}
+		if err := oldDecoder.Decode(&oldObj); err != nil {
+			return nil, err
+		}
+	}
+	return &oldObj, nil
+}
+
+// validateApproverInputsForCreate ensures all approver inputs are set to "pending" for new ApprovalTask resources
+func validateApproverInputsForCreate(approvalTask *v1alpha1.ApprovalTask) error {
+	for i, approver := range approvalTask.Spec.Approvers {
+		if approver.Input != "pending" {
+			return fmt.Errorf("approvers[%d].input: must be 'pending' for new ApprovalTask, got '%s'", i, approver.Input)
+		}
+		
+		// For group approvers, also validate that all users within the group have pending input
+		if v1alpha1.DefaultedApproverType(approver.Type) == "Group" {
+			for j, user := range approver.Users {
+				if user.Input != "pending" {
+					return fmt.Errorf("approvers[%d].users[%d].input: must be 'pending' for new ApprovalTask, got '%s'", i, j, user.Input)
+				}
+			}
+		}
+	}
+	return nil
 }
