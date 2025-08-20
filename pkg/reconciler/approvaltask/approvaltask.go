@@ -118,6 +118,23 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, run *v1beta1.CustomRun) 
 		return nil
 	}
 
+	// Validate parameters early for fail-fast behavior
+	if err := ValidateCustomRunParameters(run); err != nil {
+		detailedMsg := fmt.Sprintf("ApprovalTask validation failed: %s", err.Error())
+		run.Status.MarkCustomRunFailed(approvaltaskv1alpha1.ApprovalTaskRunReasonFailedValidation.String(),
+			detailedMsg)
+		logger.Errorf("Parameter validation failed for Run %s/%s: %v", run.Namespace, run.Name, err)
+		
+		// Emit an event with detailed error message for better visibility
+		events.Emit(ctx, nil, &apis.Condition{
+			Type:    apis.ConditionSucceeded,
+			Status:  "False",
+			Reason:  approvaltaskv1alpha1.ApprovalTaskRunReasonFailedValidation.String(), 
+			Message: detailedMsg,
+		}, run)
+		return nil
+	}
+
 	// Store the condition before reconcile
 	beforeCondition := run.Status.GetCondition(apis.ConditionSucceeded)
 
@@ -170,14 +187,6 @@ func (r *Reconciler) reconcile(ctx context.Context, run *v1beta1.CustomRun, stat
 
 	// Propagate labels and annotations from ApprovalTask to Run.
 	propagateApprovalTaskLabelsAndAnnotations(run, approvalTaskMeta)
-
-	// Validate ApprovalTask spec
-	if err := approvalTaskSpec.Validate(ctx); err != nil {
-		run.Status.MarkCustomRunFailed(approvaltaskv1alpha1.ApprovalTaskRunReasonFailedValidation.String(),
-			"ApprovalTask %s/%s can't be Run; it has an invalid spec: %s",
-			approvalTask.Namespace, approvalTask.Name, err)
-		return nil
-	}
 
 	if !approvalTask.HasStarted() {
 		approvalTask.Status.StartTime = &approvalTask.CreationTimestamp
