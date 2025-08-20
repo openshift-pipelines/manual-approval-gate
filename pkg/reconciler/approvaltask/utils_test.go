@@ -531,3 +531,289 @@ func TestApprovalTaskHasFalseInput(t *testing.T) {
 	result := approvalTaskHasFalseInput(approvalTask)
 	assert.True(t, result, "Should return true when any approver has rejected")
 }
+
+// Test the validation functions for parameter validation
+func TestValidateApproverParameter(t *testing.T) {
+	tests := []struct {
+		name        string
+		paramValue  string
+		paramIndex  int
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name:        "valid user",
+			paramValue:  "user1",
+			paramIndex:  0,
+			expectError: false,
+		},
+		{
+			name:        "valid group",
+			paramValue:  "group:approver-group",
+			paramIndex:  0,
+			expectError: false,
+		},
+		{
+			name:        "invalid group with space after colon",
+			paramValue:  "group: approver-group3",
+			paramIndex:  2,
+			expectError: true,
+			errorMsg:    "approvers[2]: invalid group format 'group: approver-group3' - use 'group:groupname' format (remove spaces around colon)",
+		},
+		{
+			name:        "invalid group with space before colon",
+			paramValue:  "group :approver-group3",
+			paramIndex:  1,
+			expectError: true,
+			errorMsg:    "approvers[1]: invalid group format 'group :approver-group3' - use 'group:groupname' format (remove spaces around colon)",
+		},
+		{
+			name:        "empty approver",
+			paramValue:  "",
+			paramIndex:  0,
+			expectError: true,
+			errorMsg:    "approvers[0]: approver name cannot be empty",
+		},
+		{
+			name:        "empty approver with spaces",
+			paramValue:  "   ",
+			paramIndex:  1,
+			expectError: true,
+			errorMsg:    "approvers[1]: approver name cannot be empty",
+		},
+		{
+			name:        "user with spaces",
+			paramValue:  "user with spaces",
+			paramIndex:  0,
+			expectError: false,
+			// Spaces are now allowed for LDAP/AD integration
+		},
+		{
+			name:        "user with colon - ServiceAccount format",
+			paramValue:  "system:serviceaccount:default:builder",
+			paramIndex:  0,
+			expectError: false,
+			// ServiceAccounts and other K8s identities with colons are allowed
+		},
+		{
+			name:        "user with colon - OAuth format", 
+			paramValue:  "oauth:alice",
+			paramIndex:  0,
+			expectError: false,
+			// OAuth users with colons are allowed
+		},
+		{
+			name:        "valid group format",
+			paramValue:  "group:dev-team",
+			paramIndex:  0, 
+			expectError: false,
+			// This is valid group syntax, should pass
+		},
+		{
+			name:        "empty group name",
+			paramValue:  "group:",
+			paramIndex:  0,
+			expectError: true,
+			errorMsg:    "approvers[0]: invalid group format 'group:' - group name cannot be empty after 'group:'",
+		},
+		{
+			name:        "group name with spaces",
+			paramValue:  "group:approver group",
+			paramIndex:  0,
+			expectError: true,
+			errorMsg:    "approvers[0]: group name 'approver group' cannot contain spaces",
+		},
+		{
+			name:        "user with special characters",
+			paramValue:  "user@#$%",
+			paramIndex:  0,
+			expectError: false,
+			// Special characters are now allowed for enterprise LDAP/AD integration
+		},
+		{
+			name:        "valid user with various characters",
+			paramValue:  "user1.test_user@example-org",
+			paramIndex:  0,
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateApproverParameter(tt.paramValue, tt.paramIndex)
+			if tt.expectError {
+				assert.Error(t, err)
+				if tt.errorMsg != "" {
+					assert.Equal(t, tt.errorMsg, err.Error())
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidateCustomRunParameters(t *testing.T) {
+	tests := []struct {
+		name        string
+		params      []v1beta1.Param
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name: "invalid group with space",
+			params: []v1beta1.Param{
+				{
+					Name:  "approvers",
+					Value: *v1beta1.NewArrayOrString("user1", "group: approver-group3"),
+				},
+				{
+					Name:  "numberOfApprovalsRequired",
+					Value: *v1beta1.NewArrayOrString("1"),
+				},
+			},
+			expectError: true,
+			errorMsg:    "invalid approvers parameter: approvers[1]: invalid group format 'group: approver-group3' - use 'group:groupname' format (remove spaces around colon)",
+		},
+		{
+			name: "invalid numberOfApprovalsRequired not a number",
+			params: []v1beta1.Param{
+				{
+					Name:  "approvers",
+					Value: *v1beta1.NewArrayOrString("user1"),
+				},
+				{
+					Name:  "numberOfApprovalsRequired",
+					Value: *v1beta1.NewArrayOrString("not-a-number"),
+				},
+			},
+			expectError: true,
+			errorMsg:    "invalid numberOfApprovalsRequired parameter: 'not-a-number' is not a valid integer",
+		},
+		{
+			name: "invalid numberOfApprovalsRequired zero",
+			params: []v1beta1.Param{
+				{
+					Name:  "approvers",
+					Value: *v1beta1.NewArrayOrString("user1"),
+				},
+				{
+					Name:  "numberOfApprovalsRequired",
+					Value: *v1beta1.NewArrayOrString("0"),
+				},
+			},
+			expectError: true,
+			errorMsg:    "invalid numberOfApprovalsRequired parameter: must be greater than 0, got 0",
+		},
+		{
+			name: "no approvers",
+			params: []v1beta1.Param{
+				{
+					Name:  "numberOfApprovalsRequired",
+					Value: *v1beta1.NewArrayOrString("1"),
+				},
+			},
+			expectError: true,
+			errorMsg:    "no valid approvers found - at least one approver is required",
+		},
+		{
+			name: "numberOfApprovalsRequired exceeds approvers - should pass",
+			params: []v1beta1.Param{
+				{
+					Name:  "approvers",
+					Value: *v1beta1.NewArrayOrString("user1", "group:large-team"),
+				},
+				{
+					Name:  "numberOfApprovalsRequired",
+					Value: *v1beta1.NewArrayOrString("5"),
+				},
+			},
+			expectError: false,
+			// Note: This should pass because group:large-team might have many members
+			// Group membership is resolved at runtime, not validation time
+		},
+		{
+			name: "malformed group as object (YAML parsing issue)",
+			params: []v1beta1.Param{
+				{
+					Name: "approvers",
+					Value: v1beta1.ParamValue{
+						Type:     v1beta1.ParamTypeArray,
+						ArrayVal: []string{"user1", "user2", "group:valid-group"},
+						ObjectVal: map[string]string{
+							"group": "example", // This simulates {"group": "example"} from YAML
+						},
+					},
+				},
+				{
+					Name:  "numberOfApprovalsRequired",
+					Value: *v1beta1.NewArrayOrString("1"),
+				},
+			},
+			expectError: true,
+			errorMsg:    "invalid approvers parameter: approvers[3]: invalid group format {\"group\":\"example\"} - use 'group:example' format instead",
+		},
+		{
+			name: "other object format",
+			params: []v1beta1.Param{
+				{
+					Name: "approvers",
+					Value: v1beta1.ParamValue{
+						Type:     v1beta1.ParamTypeArray,
+						ArrayVal: []string{"user1"},
+						ObjectVal: map[string]string{
+							"invalid": "format",
+						},
+					},
+				},
+				{
+					Name:  "numberOfApprovalsRequired",
+					Value: *v1beta1.NewArrayOrString("1"),
+				},
+			},
+			expectError: true,
+			errorMsg:    "invalid approvers parameter: approvers[1]: invalid object format {\"invalid\":\"format\"} - approver must be a string, not an object",
+		},
+		{
+			name: "valid parameters",
+			params: []v1beta1.Param{
+				{
+					Name:  "approvers",
+					Value: *v1beta1.NewArrayOrString("user1", "group:approver-group"),
+				},
+				{
+					Name:  "numberOfApprovalsRequired",
+					Value: *v1beta1.NewArrayOrString("1"),
+				},
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			run := &v1beta1.CustomRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-run",
+					Namespace: "test-namespace",
+				},
+				Spec: v1beta1.CustomRunSpec{
+					Params: tt.params,
+				},
+			}
+
+			err := ValidateCustomRunParameters(run)
+
+			if tt.expectError {
+				assert.Error(t, err)
+				if tt.errorMsg != "" {
+					assert.Equal(t, tt.errorMsg, err.Error())
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+
