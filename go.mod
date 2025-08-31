@@ -37,7 +37,7 @@ require (
 	github.com/blendle/zapdriver v1.3.1 // indirect
 	github.com/census-instrumentation/opencensus-proto v0.4.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/cloudevents/sdk-go/v2 v2.15.2 // indirect
+	github.com/cloudevents/sdk-go/v2 v2.16.1 // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.16.3 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/docker/cli v27.5.0+incompatible // indirect
@@ -96,11 +96,11 @@ require (
 	golang.org/x/mod v0.24.0 // indirect
 	golang.org/x/net v0.39.0 // indirect
 	golang.org/x/oauth2 v0.29.0 // indirect
-	golang.org/x/sync v0.13.0 // indirect
+	golang.org/x/sync v0.15.0 // indirect
 	golang.org/x/sys v0.32.0 // indirect
 	golang.org/x/term v0.31.0 // indirect
 	golang.org/x/text v0.24.0 // indirect
-	golang.org/x/time v0.10.0 // indirect
+	golang.org/x/time v0.12.0 // indirect
 	golang.org/x/tools v0.32.0 // indirect
 	google.golang.org/api v0.217.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250207221924-e9438ea467c6 // indirect
