@@ -1,8 +1,8 @@
 module github.com/openshift-pipelines/manual-approval-gate
 
-go 1.22
+go 1.23
 
-toolchain go1.22.5
+toolchain go1.24.6
 
 require (
 	github.com/fatih/color v1.17.0
@@ -113,7 +113,7 @@ require (
 	k8s.io/apiextensions-apiserver v0.29.2 // indirect
 	k8s.io/gengo v0.0.0-20240129211411-f967bbeff4b4 // indirect
 	k8s.io/klog/v2 v2.120.1 // indirect
-	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
+	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
