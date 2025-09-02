@@ -154,6 +154,16 @@ func (r *reconciler) Admit(ctx context.Context, request *admissionv1.AdmissionRe
 	var userApprovalChanged bool
 	errMsg := fmt.Errorf("User can only update their own approval input")
 
+	// First check if user is trying to re-approve/re-reject their own already-decided task
+	if alreadyDecidedMsg := checkIfUserAlreadyDecided(oldObj, request); alreadyDecidedMsg != "" {
+		return &admissionv1.AdmissionResponse{
+			Allowed: false,
+			Result: &metav1.Status{
+				Message: alreadyDecidedMsg,
+			},
+		}
+	}
+
 	changed, err := IsUserApprovalChanged(oldObj.Spec.Approvers, newObj.Spec.Approvers, request)
 	if err != nil {
 		userApprovalChanged = false
@@ -407,6 +417,37 @@ func IsUserApprovalChanged(oldObjApprovers, newObjApprovers []v1alpha1.ApproverD
 		}
 	}
 	return false, nil
+}
+
+// checkIfUserAlreadyDecided checks if a user is trying to re-approve/re-reject a task they've already decided on
+func checkIfUserAlreadyDecided(oldObj *v1alpha1.ApprovalTask, request *admissionv1.AdmissionRequest) string {
+	currentUser := request.UserInfo.Username
+	
+	// Check status.approversResponse to see if user has already made a decision
+	for _, approverResponse := range oldObj.Status.ApproversResponse {
+		if v1alpha1.DefaultedApproverType(approverResponse.Type) == "User" && approverResponse.Name == currentUser {
+			if approverResponse.Response == "approved" {
+				return "User has already approved"
+			} else if approverResponse.Response == "rejected" {
+				return "User has already rejected"
+			}
+		}
+		
+		// Check if user is in any group that has responded
+		if v1alpha1.DefaultedApproverType(approverResponse.Type) == "Group" {
+			for _, member := range approverResponse.GroupMembers {
+				if member.Name == currentUser {
+					if member.Response == "approved" {
+						return "User has already approved"
+					} else if member.Response == "rejected" {
+						return "User has already rejected"
+					}
+				}
+			}
+		}
+	}
+	
+	return "" // No issue found
 }
 
 // CheckOtherUsersForInvalidChanges validates that no other approvers inputs have been changed
