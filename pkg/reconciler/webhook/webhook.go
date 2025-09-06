@@ -155,7 +155,7 @@ func (r *reconciler) Admit(ctx context.Context, request *admissionv1.AdmissionRe
 	errMsg := fmt.Errorf("User can only update their own approval input")
 
 	// First check if user is trying to re-approve/re-reject their own already-decided task
-	if alreadyDecidedMsg := checkIfUserAlreadyDecided(oldObj, request); alreadyDecidedMsg != "" {
+	if alreadyDecidedMsg := checkIfUserAlreadyDecided(oldObj, newObj, request); alreadyDecidedMsg != "" {
 		return &admissionv1.AdmissionResponse{
 			Allowed: false,
 			Result: &metav1.Status{
@@ -420,13 +420,23 @@ func IsUserApprovalChanged(oldObjApprovers, newObjApprovers []v1alpha1.ApproverD
 }
 
 // checkIfUserAlreadyDecided checks if a user is trying to re-approve/re-reject a task they've already decided on
-func checkIfUserAlreadyDecided(oldObj *v1alpha1.ApprovalTask, request *admissionv1.AdmissionRequest) string {
+func checkIfUserAlreadyDecided(oldObj *v1alpha1.ApprovalTask, newObj *v1alpha1.ApprovalTask, request *admissionv1.AdmissionRequest) string {
 	currentUser := request.UserInfo.Username
+	
+	// Get user's desired new input from the incoming object
+	desiredInput := ""
+	for _, approver := range newObj.Spec.Approvers {
+		if v1alpha1.DefaultedApproverType(approver.Type) == "User" && approver.Name == currentUser {
+			desiredInput = approver.Input
+			break
+		}
+	}
 	
 	// Check status.approversResponse to see if user has already made a decision
 	for _, approverResponse := range oldObj.Status.ApproversResponse {
 		if v1alpha1.DefaultedApproverType(approverResponse.Type) == "User" && approverResponse.Name == currentUser {
-			if approverResponse.Response == "approved" {
+			// Block duplicate approvals and any action after rejection
+			if approverResponse.Response == "approved" && desiredInput == "approve" {
 				return "User has already approved"
 			} else if approverResponse.Response == "rejected" {
 				return "User has already rejected"
@@ -437,7 +447,8 @@ func checkIfUserAlreadyDecided(oldObj *v1alpha1.ApprovalTask, request *admission
 		if v1alpha1.DefaultedApproverType(approverResponse.Type) == "Group" {
 			for _, member := range approverResponse.GroupMembers {
 				if member.Name == currentUser {
-					if member.Response == "approved" {
+					// Block duplicate approvals and any action after rejection
+					if member.Response == "approved" && desiredInput == "approve" {
 						return "User has already approved"
 					} else if member.Response == "rejected" {
 						return "User has already rejected"
