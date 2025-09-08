@@ -277,12 +277,35 @@ func ifUserExists(approvals []v1alpha1.ApproverDetails, request *admissionv1.Adm
 }
 
 func isApprovalRequired(approvaltask v1alpha1.ApprovalTask) bool {
+	// If the task has reached a final state, no more approvals are needed
 	if approvaltask.Status.State == "rejected" || approvaltask.Status.State == "approved" {
 		return false
 	}
-	if len(approvaltask.Status.ApproversResponse) == approvaltask.Spec.NumberOfApprovalsRequired {
+	
+	// Use the same logic as the controller to count approvals
+	approvedUsers := make(map[string]bool)
+	
+	for _, approver := range approvaltask.Spec.Approvers {
+		if approver.Input != "approve" {
+			continue
+		}
+		
+		if v1alpha1.DefaultedApproverType(approver.Type) == "User" {
+			approvedUsers[approver.Name] = true
+		} else if v1alpha1.DefaultedApproverType(approver.Type) == "Group" {
+			for _, user := range approver.Users {
+				if user.Input == "approve" {
+					approvedUsers[user.Name] = true
+				}
+			}
+		}
+	}
+	
+	// If we have enough approvals, the task should be approved (final state)
+	if len(approvedUsers) >= approvaltask.Spec.NumberOfApprovalsRequired {
 		return false
 	}
+	
 	return true
 }
 
@@ -425,10 +448,41 @@ func checkIfUserAlreadyDecided(oldObj *v1alpha1.ApprovalTask, newObj *v1alpha1.A
 	
 	// Get user's desired new input from the incoming object
 	desiredInput := ""
+	
+	// First check if user is an individual approver
 	for _, approver := range newObj.Spec.Approvers {
 		if v1alpha1.DefaultedApproverType(approver.Type) == "User" && approver.Name == currentUser {
 			desiredInput = approver.Input
 			break
+		}
+	}
+	
+	// If not found as individual user, check if user is in any group
+	if desiredInput == "" {
+		for _, approver := range newObj.Spec.Approvers {
+			if v1alpha1.DefaultedApproverType(approver.Type) == "Group" {
+				// Check if user is explicitly in the group's users list
+				for _, user := range approver.Users {
+					if user.Name == currentUser {
+						desiredInput = user.Input
+						break
+					}
+				}
+				if desiredInput != "" {
+					break
+				}
+				
+				// Check if user is in the group via RBAC (group-level input)
+				for _, userGroup := range request.UserInfo.Groups {
+					if approver.Name == userGroup {
+						desiredInput = approver.Input
+						break
+					}
+				}
+				if desiredInput != "" {
+					break
+				}
+			}
 		}
 	}
 	
