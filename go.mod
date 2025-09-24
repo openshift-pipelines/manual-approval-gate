@@ -1,8 +1,8 @@
 module github.com/openshift-pipelines/manual-approval-gate
 
-go 1.23.0
+go 1.24.0
 
-toolchain go1.23.8
+toolchain go1.24.6
 
 require (
 	github.com/fatih/color v1.18.0
@@ -104,9 +104,9 @@ require (
 	golang.org/x/tools v0.32.0 // indirect
 	google.golang.org/api v0.217.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250207221924-e9438ea467c6 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250207221924-e9438ea467c6 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250922171735-9219d122eba9 // indirect
 	google.golang.org/grpc v1.71.1 // indirect
-	google.golang.org/protobuf v1.36.6 // indirect
+	google.golang.org/protobuf v1.36.9 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
