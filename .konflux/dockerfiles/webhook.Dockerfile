@@ -20,7 +20,8 @@ COPY --from=builder /tmp/manual-approval-gate-webhook ${KO_APP}/manual-approval-
 
 LABEL \
     com.redhat.component="openshift-pipelines-manual-approval-gate-rhel8-container" \
-    name="openshift-pipelines/pipelines-manual-approval-gate-rhel8" \
+    name="openshift-pipelines/pipelines-manual-approval-gate-webhook-rhel8" \
+    cpe="cpe:/a:redhat:openshift_pipelines:1.16::el8" \
     version=$VERSION \
     summary="Red Hat OpenShift Pipelines Manual Approval Gate" \
     maintainer="pipelines-extcomm@redhat.com" \
