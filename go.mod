@@ -6,7 +6,7 @@ require (
 	github.com/fatih/color v1.13.0
 	github.com/hashicorp/errwrap v1.1.0
 	github.com/hashicorp/go-multierror v1.1.1
-	github.com/hashicorp/golang-lru v1.0.2
+	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/openshift/client-go v0.0.0-20240422164335-6c851f4919dd
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.7.0
