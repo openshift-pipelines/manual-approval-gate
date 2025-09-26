@@ -12,7 +12,7 @@ metadata:
     pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch
       == "release-v0.6.0" &&
       ("***".pathChanged() ||
-      ".konflux/dockerfiles/webhook-v1.24.Dockerfile".pathChanged() ||
+      ".konflux/dockerfiles/webhook.Dockerfile".pathChanged() ||
       ".tekton/manual-approval-gate-1-20-webhook-push.yaml".pathChanged())
   creationTimestamp: null
   labels:
@@ -30,7 +30,7 @@ spec:
   - name: output-image
     value: quay.io/redhat-user-workloads/tekton-ecosystem-tenant/1-20/manual-approval-gate-webhook-rhel9:{{revision}}
   - name: dockerfile
-    value: .konflux/dockerfiles/webhook-v1.24.Dockerfile
+    value: .konflux/dockerfiles/webhook.Dockerfile
   - name: prefetch-input
     value: |
       {"type": "rpm", "path": ".konflux/rpms"}
