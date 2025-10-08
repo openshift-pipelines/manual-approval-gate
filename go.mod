@@ -1,8 +1,8 @@
 module github.com/openshift-pipelines/manual-approval-gate
 
-go 1.22
+go 1.24.0
 
-toolchain go1.22.5
+toolchain go1.24.6
 
 require (
 	github.com/fatih/color v1.18.0
@@ -95,7 +95,7 @@ require (
 	golang.org/x/exp v0.0.0-20230515195305-f3d0a9c9a5cc // indirect
 	golang.org/x/mod v0.17.0 // indirect
 	golang.org/x/net v0.34.0 // indirect
-	golang.org/x/oauth2 v0.22.0 // indirect
+	golang.org/x/oauth2 v0.32.0 // indirect
 	golang.org/x/sync v0.10.0 // indirect
 	golang.org/x/sys v0.29.0 // indirect
 	golang.org/x/term v0.28.0 // indirect
