@@ -1,6 +1,8 @@
 module github.com/openshift-pipelines/manual-approval-gate
 
-go 1.21
+go 1.23
+
+toolchain go1.24.6
 
 require (
 	github.com/fatih/color v1.13.0
@@ -65,7 +67,7 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kelseyhightower/envconfig v1.4.0 // indirect
-	github.com/klauspost/compress v1.16.6 // indirect
+	github.com/klauspost/compress v1.18.1 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.9 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
