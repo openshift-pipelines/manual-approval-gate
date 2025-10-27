@@ -135,7 +135,7 @@ func (r *reconciler) Admit(ctx context.Context, request *admissionv1.AdmissionRe
 		return &admissionv1.AdmissionResponse{
 			Allowed: false,
 			Result: &metav1.Status{
-				Message: "ApprovalTask has already reached its final state",
+				Message: "ApprovalTask has already reached it's final state",
 			},
 		}
 	}
