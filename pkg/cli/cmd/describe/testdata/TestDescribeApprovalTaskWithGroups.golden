@@ -9,9 +9,9 @@
 👨‍💻 ApproverResponse
 
 Name                     ApproverResponse     Message
-admin-group: bob         ✅                    LGTM
-admin-group: charlie     ✅                    ---
-dev-team: david          ❌                    Needs more testing
+bob(admin-group)         ✅                    LGTM
+charlie(admin-group)     ✅                    ---
+david(dev-team)          ❌                    Needs more testing
 
 🌡️  Status
 
