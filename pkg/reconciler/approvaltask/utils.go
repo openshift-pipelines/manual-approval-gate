@@ -596,7 +596,7 @@ func updateApprovalState(ctx context.Context, approvaltaskClientSet versioned.In
 					groupMembers = append(groupMembers, v1alpha1.GroupMemberState{
 						Name:     user.Name,
 						Response: userResponse,
-						Message:  approver.Message, // Inherit message from group level
+						Message:  user.Message, // Inherit message from user level
 					})
 				}
 			}

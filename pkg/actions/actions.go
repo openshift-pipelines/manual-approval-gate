@@ -135,6 +135,9 @@ func update(gvr *schema.GroupVersionResource, dynamic dynamic.Interface, at *v1a
 								if existing.Input != opts.Input {
 									at.Spec.Approvers[i].Users[j].Input = opts.Input
 								}
+								if existing.Message != opts.Message {
+									at.Spec.Approvers[i].Users[j].Message = opts.Message
+								}
 								break
 							}
 						}
@@ -142,6 +145,7 @@ func update(gvr *schema.GroupVersionResource, dynamic dynamic.Interface, at *v1a
 							newUser := v1alpha1.UserDetails{
 								Name:  opts.Username,
 								Input: opts.Input,
+								Message: opts.Message,
 							}
 							at.Spec.Approvers[i].Users = append(at.Spec.Approvers[i].Users, newUser)
 						}
