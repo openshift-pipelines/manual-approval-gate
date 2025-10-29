@@ -332,9 +332,18 @@ func hasOnlyInputChanged(oldObjApprover, newObjApprover v1alpha1.ApproverDetails
 // IsUserApprovalChanged checks if there is a valid input change for the current user.
 func IsUserApprovalChanged(oldObjApprovers, newObjApprovers []v1alpha1.ApproverDetails, request *admissionv1.AdmissionRequest) (bool, error) {
 	currentUser := request.UserInfo.Username
+	hasValidChange := false
+	var validationError error
+
 	for i, approver := range oldObjApprovers {
 		if approver.Name == currentUser && v1alpha1.DefaultedApproverType(approver.Type) == "User" {
-			return hasOnlyInputChanged(approver, newObjApprovers[i])
+			changed, err := hasOnlyInputChanged(approver, newObjApprovers[i])
+			if err != nil {
+				validationError = err
+			} else if changed {
+				hasValidChange = true
+			}
+			// Don't return early - continue checking for group changes
 		}
 
 		if v1alpha1.DefaultedApproverType(approver.Type) == "Group" {
@@ -362,9 +371,10 @@ func IsUserApprovalChanged(oldObjApprovers, newObjApprovers []v1alpha1.ApproverD
 				if i < len(newObjApprovers) {
 					if approver.Input != newObjApprovers[i].Input {
 						if err := hasValidInputValue(newObjApprovers[i].Input); err != nil {
-							return false, err
+							validationError = err
+						} else {
+							hasValidChange = true
 						}
-						return true, nil
 					}
 				}
 
@@ -395,13 +405,14 @@ func IsUserApprovalChanged(oldObjApprovers, newObjApprovers []v1alpha1.ApproverD
 						for _, user := range newObjApprovers[i].Users {
 							if user.Name == currentUser {
 								if err := hasValidInputValue(user.Input); err != nil {
-									return false, err
+									validationError = err
+								} else {
+									hasValidChange = true
 								}
-								return true, nil
+								break
 							}
 						}
 					}
-					return true, nil
 				}
 
 				// Allow changes to individual user inputs within the group
@@ -432,14 +443,21 @@ func IsUserApprovalChanged(oldObjApprovers, newObjApprovers []v1alpha1.ApproverD
 				// Allow user to change their input if they're in both old and new lists
 				if userFoundInOld && userFoundInNew && oldUserInput != newUserInput {
 					if err := hasValidInputValue(newUserInput); err != nil {
-						return false, err
+						validationError = err
+					} else {
+						hasValidChange = true
 					}
-					return true, nil
 				}
 			}
 		}
 	}
-	return false, nil
+
+	// If there was a validation error, return it
+	if validationError != nil {
+		return false, validationError
+	}
+
+	return hasValidChange, nil
 }
 
 // checkIfUserAlreadyDecided checks if a user is trying to re-approve/re-reject a task they've already decided on
