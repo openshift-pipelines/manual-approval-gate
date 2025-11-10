@@ -1,6 +1,7 @@
 package describe
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"text/tabwriter"
@@ -13,6 +14,7 @@ import (
 	"github.com/openshift-pipelines/manual-approval-gate/pkg/cli/formatter"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/yaml"
 )
 
 var taskTemplate = `📦 Name:            {{ .ApprovalTask.Name }}
@@ -110,7 +112,6 @@ type UserGroupInfo struct {
 // userGroups processes ApproversResponse to group users by name across multiple groups
 func userGroups(approversResponse []v1alpha1.ApproverState) map[string]UserGroupInfo {
 	userMap := make(map[string]UserGroupInfo)
-	
 	// Process group members
 	for _, approver := range approversResponse {
 		if approver.Type == "Group" {
@@ -130,7 +131,6 @@ func userGroups(approversResponse []v1alpha1.ApproverState) map[string]UserGroup
 			}
 		}
 	}
-	
 	// Create comma-separated group strings
 	for userName, info := range userMap {
 		groupsStr := ""
@@ -143,12 +143,12 @@ func userGroups(approversResponse []v1alpha1.ApproverState) map[string]UserGroup
 		info.GroupsStr = groupsStr
 		userMap[userName] = info
 	}
-	
+
 	return userMap
 }
-
 func Command(p cli.Params) *cobra.Command {
 	opts := &cli.Options{}
+	var output string
 
 	funcMap := template.FuncMap{
 		"pipelineRunRef":   pipelineRunRef,
@@ -195,12 +195,38 @@ func Command(p cli.Params) *cobra.Command {
 				ApprovalTask: at,
 			}
 
+			// Handle structured output if requested
+			if output != "" {
+				// Ensure TypeMeta is set for proper k8s-style output
+				at.TypeMeta.APIVersion = "openshift-pipelines.org/v1alpha1"
+				at.TypeMeta.Kind = "ApprovalTask"
+
+				switch output {
+				case "json":
+					bytes, err := json.MarshalIndent(at, "", "  ")
+					if err != nil {
+						return err
+					}
+					_, err = fmt.Fprintln(cmd.OutOrStdout(), string(bytes))
+					return err
+				case "yaml", "yml":
+					j, err := json.Marshal(at)
+					if err != nil {
+						return err
+					}
+					y, err := yaml.JSONToYAML(j)
+					if err != nil {
+						return err
+					}
+					_, err = fmt.Fprintln(cmd.OutOrStdout(), string(y))
+					return err
+				default:
+					return fmt.Errorf("unsupported output format: %q (supported: json, yaml)", output)
+				}
+			}
+
 			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 8, 5, ' ', tabwriter.TabIndent)
 			t := template.Must(template.New("Describe ApprovalTask").Funcs(funcMap).Parse(taskTemplate))
-
-			if err != nil {
-				return err
-			}
 
 			if err := t.Execute(w, data); err != nil {
 				log.Fatal(err)
@@ -211,6 +237,8 @@ func Command(p cli.Params) *cobra.Command {
 		},
 	}
 	flags.AddOptions(c)
+
+	c.Flags().StringVarP(&output, "output", "o", "", "Output format. One of: json|yaml")
 
 	return c
 }
