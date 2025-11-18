@@ -1,0 +1,4 @@
+NAME   NumberOfApprovalsRequired   PendingApprovals   Rejected   STATUS
+cr-1   2                           2                  0          Pending
+cr-2   2                           0                  1          Rejected
+cr-3   2                           0                  0          Approved
