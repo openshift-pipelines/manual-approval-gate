@@ -1,0 +1,13 @@
+📦 Name:            at-1
+🗂  Namespace:       test-5
+
+👥 Approvers
+   * foo
+   * bar
+   * tekton
+   * kubernetes-admin
+
+🌡️  Status
+
+NumberOfApprovalsRequired     PendingApprovals     STATUS
+2                             2                    Pending
