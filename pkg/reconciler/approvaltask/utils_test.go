@@ -18,6 +18,7 @@ package approvaltask
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/openshift-pipelines/manual-approval-gate/pkg/apis/approvaltask"
@@ -27,6 +28,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 func TestCheckCustomRunReferencesApprovalTaskValidReferences(t *testing.T) {
@@ -814,6 +816,796 @@ func TestValidateCustomRunParameters(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestValidateGroupSyntax tests the validateGroupSyntax function directly
+func TestValidateGroupSyntax(t *testing.T) {
+	tests := []struct {
+		name        string
+		paramValue  string
+		paramIndex  int
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name:        "valid group",
+			paramValue:  "group:dev-team",
+			paramIndex:  0,
+			expectError: false,
+		},
+		{
+			name:        "empty group name",
+			paramValue:  "group:",
+			paramIndex:  0,
+			expectError: true,
+			errorMsg:    "approvers[0]: invalid group format 'group:' - group name cannot be empty after 'group:'",
+		},
+		{
+			name:        "group name with spaces",
+			paramValue:  "group:dev team",
+			paramIndex:  1,
+			expectError: true,
+			errorMsg:    "approvers[1]: group name 'dev team' cannot contain spaces",
+		},
+		{
+			name:        "group name with colon",
+			paramValue:  "group:dev:team",
+			paramIndex:  0,
+			expectError: true,
+			errorMsg:    "approvers[0]: group name 'dev:team' cannot contain colons",
+		},
+		{
+			name:        "group name with only whitespace",
+			paramValue:  "group:   ",
+			paramIndex:  0,
+			expectError: true,
+			errorMsg:    "approvers[0]: invalid group format 'group:   ' - group name cannot be empty after 'group:'",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateGroupSyntax(tt.paramValue, tt.paramIndex)
+			if tt.expectError {
+				assert.Error(t, err)
+				if tt.errorMsg != "" {
+					assert.Equal(t, tt.errorMsg, err.Error())
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestValidateUserSyntax tests the validateUserSyntax function directly
+func TestValidateUserSyntax(t *testing.T) {
+	tests := []struct {
+		name        string
+		paramValue  string
+		paramIndex  int
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name:        "valid user",
+			paramValue:  "user1",
+			paramIndex:  0,
+			expectError: false,
+		},
+		{
+			name:        "empty user",
+			paramValue:  "",
+			paramIndex:  0,
+			expectError: true,
+			errorMsg:    "approvers[0]: username cannot be empty",
+		},
+		{
+			name:        "user with only whitespace",
+			paramValue:  "   ",
+			paramIndex:  1,
+			expectError: true,
+			errorMsg:    "approvers[1]: username cannot be empty",
+		},
+		{
+			name:        "user with spaces",
+			paramValue:  "user with spaces",
+			paramIndex:  0,
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateUserSyntax(tt.paramValue, tt.paramIndex)
+			if tt.expectError {
+				assert.Error(t, err)
+				if tt.errorMsg != "" {
+					assert.Equal(t, tt.errorMsg, err.Error())
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestValidateApprovalsRequired tests the validateApprovalsRequired function directly
+func TestValidateApprovalsRequired(t *testing.T) {
+	tests := []struct {
+		name        string
+		value       string
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name:        "valid positive number",
+			value:       "1",
+			expectError: false,
+		},
+		{
+			name:        "valid large number",
+			value:       "100",
+			expectError: false,
+		},
+		{
+			name:        "zero",
+			value:       "0",
+			expectError: true,
+			errorMsg:    "invalid numberOfApprovalsRequired parameter: must be greater than 0, got 0",
+		},
+		{
+			name:        "negative number",
+			value:       "-1",
+			expectError: true,
+			errorMsg:    "invalid numberOfApprovalsRequired parameter: must be greater than 0, got -1",
+		},
+		{
+			name:        "not a number",
+			value:       "abc",
+			expectError: true,
+			errorMsg:    "invalid numberOfApprovalsRequired parameter: 'abc' is not a valid integer",
+		},
+		{
+			name:        "empty string",
+			value:       "",
+			expectError: true,
+			errorMsg:    "invalid numberOfApprovalsRequired parameter: '' is not a valid integer",
+		},
+		{
+			name:        "float number",
+			value:       "1.5",
+			expectError: true,
+			errorMsg:    "invalid numberOfApprovalsRequired parameter: '1.5' is not a valid integer",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateApprovalsRequired(tt.value)
+			if tt.expectError {
+				assert.Error(t, err)
+				if tt.errorMsg != "" {
+					assert.Equal(t, tt.errorMsg, err.Error())
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestParseApproversList tests the parseApproversList function
+func TestParseApproversList(t *testing.T) {
+	tests := []struct {
+		name            string
+		param           v1beta1.Param
+		expectError     bool
+		expectedCount   int
+		expectedApprovers []string
+	}{
+		{
+			name: "array format",
+			param: v1beta1.Param{
+				Name:  "approvers",
+				Value: *v1beta1.NewArrayOrString("user1", "user2", "group:dev-team"),
+			},
+			expectError:     false,
+			expectedCount:   3,
+			expectedApprovers: []string{"user1", "user2", "group:dev-team"},
+		},
+		{
+			name: "string JSON array format",
+			param: v1beta1.Param{
+				Name:  "approvers",
+				Value: *v1beta1.NewArrayOrString(`["user1", "user2"]`),
+			},
+			expectError:     false,
+			expectedCount:   2,
+			expectedApprovers: []string{"user1", "user2"},
+		},
+		{
+			name: "object format",
+			param: v1beta1.Param{
+				Name: "approvers",
+				Value: v1beta1.ParamValue{
+					ObjectVal: map[string]string{
+						"group": "dev-team",
+					},
+				},
+			},
+			expectError:   false,
+			expectedCount: 1,
+		},
+		{
+			name: "invalid JSON string",
+			param: v1beta1.Param{
+				Name:  "approvers",
+				Value: *v1beta1.NewArrayOrString(`invalid json`),
+			},
+			expectError:   true,
+			expectedCount: 0,
+		},
+		{
+			name: "string not an array",
+			param: v1beta1.Param{
+				Name:  "approvers",
+				Value: *v1beta1.NewArrayOrString(`{"key": "value"}`),
+			},
+			expectError:   true,
+			expectedCount: 0,
+		},
+		{
+			name: "empty array",
+			param: v1beta1.Param{
+				Name: "approvers",
+				Value: v1beta1.ParamValue{
+					Type:     v1beta1.ParamTypeArray,
+					ArrayVal: []string{},
+				},
+			},
+			expectError:   false,
+			expectedCount: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var validationErrors []string
+			approverList := parseApproversList(tt.param, &validationErrors)
+			
+			if tt.expectError {
+				assert.Greater(t, len(validationErrors), 0, "Expected validation errors")
+			} else {
+				assert.Equal(t, tt.expectedCount, len(approverList), "Approver count should match")
+				if len(tt.expectedApprovers) > 0 {
+					for i, expected := range tt.expectedApprovers {
+						if i < len(approverList) {
+							if str, ok := approverList[i].(string); ok {
+								assert.Equal(t, expected, str)
+							}
+						}
+					}
+				}
+			}
+		})
+	}
+}
+
+// TestValidateApproversParam tests the validateApproversParam function
+func TestValidateApproversParam(t *testing.T) {
+	tests := []struct {
+		name          string
+		param         v1beta1.Param
+		expectedCount int
+		expectErrors  bool
+	}{
+		{
+			name: "valid approvers",
+			param: v1beta1.Param{
+				Name:  "approvers",
+				Value: *v1beta1.NewArrayOrString("user1", "user2", "group:dev-team"),
+			},
+			expectedCount: 3,
+			expectErrors:  false,
+		},
+		{
+			name: "invalid approver with space in group",
+			param: v1beta1.Param{
+				Name:  "approvers",
+				Value: *v1beta1.NewArrayOrString("user1", "group: dev-team"),
+			},
+			expectedCount: 1,
+			expectErrors:  true,
+		},
+		{
+			name: "empty approver",
+			param: v1beta1.Param{
+				Name:  "approvers",
+				Value: *v1beta1.NewArrayOrString("user1", ""),
+			},
+			expectedCount: 1,
+			expectErrors:  true,
+		},
+		{
+			name: "object approver",
+			param: v1beta1.Param{
+				Name: "approvers",
+				Value: v1beta1.ParamValue{
+					ObjectVal: map[string]string{
+						"group": "dev-team",
+					},
+				},
+			},
+			expectedCount: 0,
+			expectErrors:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			count, errors := validateApproversParam(tt.param)
+			assert.Equal(t, tt.expectedCount, count, "Approver count should match")
+			if tt.expectErrors {
+				assert.Greater(t, len(errors), 0, "Expected validation errors")
+			} else {
+				assert.Equal(t, 0, len(errors), "Should not have validation errors")
+			}
+		})
+	}
+}
+
+// TestValidateMalformedObjectApprover tests the validateMalformedObjectApprover function
+func TestValidateMalformedObjectApprover(t *testing.T) {
+	tests := []struct {
+		name         string
+		approver     map[string]interface{}
+		index        int
+		expectError  bool
+		errorContains string
+	}{
+		{
+			name: "group object",
+			approver: map[string]interface{}{
+				"group": "dev-team",
+			},
+			index:        0,
+			expectError:  true,
+			errorContains: "invalid group format",
+		},
+		{
+			name: "invalid object",
+			approver: map[string]interface{}{
+				"invalid": "format",
+			},
+			index:        1,
+			expectError:  true,
+			errorContains: "invalid object format",
+		},
+		{
+			name: "group with non-string value",
+			approver: map[string]interface{}{
+				"group": 123,
+			},
+			index:        0,
+			expectError:  true,
+			errorContains: "invalid group specification",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var validationErrors []string
+			validateMalformedObjectApprover(tt.approver, tt.index, &validationErrors)
+			
+			if tt.expectError {
+				assert.Greater(t, len(validationErrors), 0, "Expected validation errors")
+				if tt.errorContains != "" {
+					found := false
+					for _, err := range validationErrors {
+						if strings.Contains(err, tt.errorContains) {
+							found = true
+							break
+						}
+					}
+					assert.True(t, found, "Error should contain: %s", tt.errorContains)
+				}
+			}
+		})
+	}
+}
+
+// TestStoreApprovalTaskSpec tests the storeApprovalTaskSpec function
+func TestStoreApprovalTaskSpec(t *testing.T) {
+	tests := []struct {
+		name              string
+		status            *v1alpha1.ApprovalTaskRunStatus
+		spec              *v1alpha1.ApprovalTaskSpec
+		shouldStore       bool
+		expectedStored    bool
+	}{
+		{
+			name: "store when nil",
+			status: &v1alpha1.ApprovalTaskRunStatus{
+				ApprovalTaskSpec: nil,
+			},
+			spec: &v1alpha1.ApprovalTaskSpec{
+				Approvers: []v1alpha1.ApproverDetails{
+					{Name: "user1", Type: "User"},
+				},
+			},
+			shouldStore:    true,
+			expectedStored: true,
+		},
+		{
+			name: "don't store when already set",
+			status: &v1alpha1.ApprovalTaskRunStatus{
+				ApprovalTaskSpec: &v1alpha1.ApprovalTaskSpec{
+					Approvers: []v1alpha1.ApproverDetails{
+						{Name: "old-user", Type: "User"},
+					},
+				},
+			},
+			spec: &v1alpha1.ApprovalTaskSpec{
+				Approvers: []v1alpha1.ApproverDetails{
+					{Name: "new-user", Type: "User"},
+				},
+			},
+			shouldStore:    false,
+			expectedStored: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			originalSpec := tt.status.ApprovalTaskSpec
+			storeApprovalTaskSpec(tt.status, tt.spec)
+			
+			if tt.shouldStore {
+				assert.NotNil(t, tt.status.ApprovalTaskSpec, "Spec should be stored")
+				assert.Equal(t, tt.spec, tt.status.ApprovalTaskSpec, "Stored spec should match")
+			} else {
+				assert.Equal(t, originalSpec, tt.status.ApprovalTaskSpec, "Spec should not be overwritten")
+			}
+		})
+	}
+}
+
+// TestCountApprovalsReceived tests the countApprovalsReceived function
+func TestCountApprovalsReceived(t *testing.T) {
+	tests := []struct {
+		name           string
+		approvalTask   v1alpha1.ApprovalTask
+		expectedCount  int
+	}{
+		{
+			name: "no approvals",
+			approvalTask: v1alpha1.ApprovalTask{
+				Spec: v1alpha1.ApprovalTaskSpec{
+					Approvers: []v1alpha1.ApproverDetails{
+						{Name: "user1", Input: "pending", Type: "User"},
+						{Name: "user2", Input: "pending", Type: "User"},
+					},
+				},
+			},
+			expectedCount: 0,
+		},
+		{
+			name: "one user approval",
+			approvalTask: v1alpha1.ApprovalTask{
+				Spec: v1alpha1.ApprovalTaskSpec{
+					Approvers: []v1alpha1.ApproverDetails{
+						{Name: "user1", Input: "approve", Type: "User"},
+						{Name: "user2", Input: "pending", Type: "User"},
+					},
+				},
+			},
+			expectedCount: 1,
+		},
+		{
+			name: "two user approvals",
+			approvalTask: v1alpha1.ApprovalTask{
+				Spec: v1alpha1.ApprovalTaskSpec{
+					Approvers: []v1alpha1.ApproverDetails{
+						{Name: "user1", Input: "approve", Type: "User"},
+						{Name: "user2", Input: "approve", Type: "User"},
+					},
+				},
+			},
+			expectedCount: 2,
+		},
+		{
+			name: "group with approvals",
+			approvalTask: v1alpha1.ApprovalTask{
+				Spec: v1alpha1.ApprovalTaskSpec{
+					Approvers: []v1alpha1.ApproverDetails{
+						{
+							Name:  "dev-team",
+							Input: "approve",
+							Type:  "Group",
+							Users: []v1alpha1.UserDetails{
+								{Name: "alice", Input: "approve"},
+								{Name: "bob", Input: "approve"},
+								{Name: "charlie", Input: "pending"},
+							},
+						},
+					},
+				},
+			},
+			expectedCount: 2,
+		},
+		{
+			name: "mixed user and group approvals",
+			approvalTask: v1alpha1.ApprovalTask{
+				Spec: v1alpha1.ApprovalTaskSpec{
+					Approvers: []v1alpha1.ApproverDetails{
+						{Name: "user1", Input: "approve", Type: "User"},
+						{
+							Name:  "dev-team",
+							Input: "approve",
+							Type:  "Group",
+							Users: []v1alpha1.UserDetails{
+								{Name: "alice", Input: "approve"},
+								{Name: "bob", Input: "pending"},
+							},
+						},
+					},
+				},
+			},
+			expectedCount: 2,
+		},
+		{
+			name: "rejections not counted",
+			approvalTask: v1alpha1.ApprovalTask{
+				Spec: v1alpha1.ApprovalTaskSpec{
+					Approvers: []v1alpha1.ApproverDetails{
+						{Name: "user1", Input: "approve", Type: "User"},
+						{Name: "user2", Input: "reject", Type: "User"},
+					},
+				},
+			},
+			expectedCount: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			count := countApprovalsReceived(tt.approvalTask)
+			assert.Equal(t, tt.expectedCount, count, "Approval count should match")
+		})
+	}
+}
+
+// TestCompute tests the Compute hash function
+func TestCompute(t *testing.T) {
+	tests := []struct {
+		name        string
+		obj         interface{}
+		expectError bool
+		expectHash  bool
+	}{
+		{
+			name: "valid object",
+			obj: map[string]interface{}{
+				"key1": "value1",
+				"key2": "value2",
+			},
+			expectError: false,
+			expectHash:  true,
+		},
+		{
+			name: "array",
+			obj: []string{"item1", "item2"},
+			expectError: false,
+			expectHash:  true,
+		},
+		{
+			name: "struct",
+			obj: v1alpha1.ApproverDetails{
+				Name: "user1",
+				Type: "User",
+			},
+			expectError: false,
+			expectHash:  true,
+		},
+		{
+			name: "empty object",
+			obj: map[string]interface{}{},
+			expectError: false,
+			expectHash:  true,
+		},
+		{
+			name: "nil",
+			obj: nil,
+			expectError: false,
+			expectHash:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hash, err := Compute(tt.obj)
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+			if tt.expectHash {
+				assert.NotEmpty(t, hash, "Hash should not be empty")
+				// SHA256 produces 64 character hex string
+				assert.Len(t, hash, 64, "Hash should be 64 characters")
+			}
+		})
+	}
+
+	// Test that same object produces same hash
+	obj1 := map[string]string{"key": "value"}
+	hash1, err1 := Compute(obj1)
+	assert.NoError(t, err1)
+
+	obj2 := map[string]string{"key": "value"}
+	hash2, err2 := Compute(obj2)
+	assert.NoError(t, err2)
+
+	assert.Equal(t, hash1, hash2, "Same object should produce same hash")
+
+	// Test that different objects produce different hashes
+	obj3 := map[string]string{"key": "different"}
+	hash3, err3 := Compute(obj3)
+	assert.NoError(t, err3)
+
+	assert.NotEqual(t, hash1, hash3, "Different objects should produce different hashes")
+}
+
+// TestInitializeCustomRun tests the initializeCustomRun function
+// Note: This test focuses on the initialization logic. The events.Emit call
+// requires a Kubernetes event recorder which is not available in unit tests,
+// but the core initialization logic (HasStarted, StartTime, InitializeConditions)
+// is tested through integration tests in the reconciler.
+func TestInitializeCustomRun(t *testing.T) {
+	// This test is skipped because initializeCustomRun calls events.Emit
+	// which requires a Kubernetes event recorder that's not available in unit tests.
+	// The initialization logic is tested through the reconciler integration tests.
+	// If you need to test this function directly, you would need to:
+	// 1. Mock the events.Emit function, or
+	// 2. Set up a proper test environment with a fake event recorder
+	t.Skip("Skipping test because events.Emit requires Kubernetes event recorder")
+}
+
+// TestGetOrCreateApprovalTask tests the getOrCreateApprovalTask function
+func TestGetOrCreateApprovalTask(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("get existing approval task", func(t *testing.T) {
+		run := &v1beta1.CustomRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-run",
+				Namespace: "test-ns",
+			},
+			Spec: v1beta1.CustomRunSpec{
+				CustomRef: &v1beta1.TaskRef{
+					APIVersion: approvaltaskv1alpha1.SchemeGroupVersion.String(),
+					Kind:       approvaltask.ControllerName,
+				},
+			},
+		}
+
+		// Create existing approval task
+		client := fake.NewSimpleClientset()
+		existingTask := &v1alpha1.ApprovalTask{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-run",
+				Namespace: "test-ns",
+			},
+			Spec: v1alpha1.ApprovalTaskSpec{
+				Approvers: []v1alpha1.ApproverDetails{
+					{Name: "user1", Type: "User"},
+				},
+			},
+		}
+		_, err := client.OpenshiftpipelinesV1alpha1().ApprovalTasks("test-ns").Create(ctx, existingTask, metav1.CreateOptions{})
+		assert.NoError(t, err)
+
+		task, err := getOrCreateApprovalTask(ctx, client, run)
+		assert.NoError(t, err)
+		assert.NotNil(t, task)
+		assert.Equal(t, "test-run", task.Name)
+		assert.Equal(t, 1, len(task.Spec.Approvers))
+	})
+
+	t.Run("create new approval task when not exists", func(t *testing.T) {
+		run := &v1beta1.CustomRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-run",
+				Namespace: "test-ns",
+			},
+			Spec: v1beta1.CustomRunSpec{
+				CustomRef: &v1beta1.TaskRef{
+					APIVersion: approvaltaskv1alpha1.SchemeGroupVersion.String(),
+					Kind:       approvaltask.ControllerName,
+				},
+				Params: []v1beta1.Param{
+					{
+						Name:  "approvers",
+						Value: *v1beta1.NewArrayOrString("user1"),
+					},
+				},
+			},
+		}
+
+		client := fake.NewSimpleClientset()
+		task, err := getOrCreateApprovalTask(ctx, client, run)
+		assert.NoError(t, err)
+		assert.NotNil(t, task)
+		assert.Equal(t, "test-run", task.Name)
+	})
+
+	t.Run("handle custom spec", func(t *testing.T) {
+		specJSON := `{"approvers":[{"name":"user1","type":"User"}]}`
+		run := &v1beta1.CustomRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-run",
+				Namespace: "test-ns",
+			},
+			Spec: v1beta1.CustomRunSpec{
+				CustomSpec: &v1beta1.EmbeddedCustomRunSpec{
+					TypeMeta: runtime.TypeMeta{
+						APIVersion: approvaltaskv1alpha1.SchemeGroupVersion.String(),
+						Kind:       approvaltask.ControllerName,
+					},
+					Spec: runtime.RawExtension{
+						Raw: []byte(specJSON),
+					},
+				},
+			},
+		}
+
+		client := fake.NewSimpleClientset()
+		task, err := getOrCreateApprovalTask(ctx, client, run)
+		assert.NoError(t, err)
+		assert.NotNil(t, task)
+		assert.Equal(t, 1, len(task.Spec.Approvers))
+	})
+}
+
+// TestCheckCustomRunReferencesApprovalTaskWithCustomSpec tests CustomSpec path
+func TestCheckCustomRunReferencesApprovalTaskWithCustomSpec(t *testing.T) {
+	t.Run("valid CustomSpec reference", func(t *testing.T) {
+		run := &v1beta1.CustomRun{
+			Spec: v1beta1.CustomRunSpec{
+				CustomSpec: &v1beta1.EmbeddedCustomRunSpec{
+					TypeMeta: runtime.TypeMeta{
+						APIVersion: approvaltaskv1alpha1.SchemeGroupVersion.String(),
+						Kind:       approvaltask.ControllerName,
+					},
+				},
+			},
+		}
+
+		err := checkCustomRunReferencesApprovalTask(run)
+		assert.NoError(t, err)
+	})
+
+	t.Run("invalid CustomSpec reference", func(t *testing.T) {
+		run := &v1beta1.CustomRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test",
+				Namespace: "ns",
+			},
+			Spec: v1beta1.CustomRunSpec{
+				CustomSpec: &v1beta1.EmbeddedCustomRunSpec{
+					TypeMeta: runtime.TypeMeta{
+						APIVersion: "wrong-api",
+						Kind:       "wrong-kind",
+					},
+				},
+			},
+		}
+
+		err := checkCustomRunReferencesApprovalTask(run)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "does not reference a ApprovalTask custom CRD")
+	})
 }
 
 
