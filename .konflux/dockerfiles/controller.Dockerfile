@@ -9,8 +9,7 @@ RUN set -e; for f in patches/*.patch; do echo ${f}; [[ -f ${f} ]] || continue; g
 ENV GODEBUG="http2server=0"
 ENV GOEXPERIMENT=strictfipsruntime
 RUN git rev-parse HEAD > /tmp/HEAD
-RUN CGO_ENABLED=0 \
-    go build -ldflags="-X 'knative.dev/pkg/changeset.rev=$(cat /tmp/HEAD)'" -mod=vendor -tags disable_gcp,strictfipsruntime  -v -o /tmp/manual-approval-gate-controller \
+RUN go build -ldflags="-X 'knative.dev/pkg/changeset.rev=$(cat /tmp/HEAD)'" -mod=vendor -tags disable_gcp,strictfipsruntime  -v -o /tmp/manual-approval-gate-controller \
     ./cmd/controller
 
 FROM $RUNTIME
