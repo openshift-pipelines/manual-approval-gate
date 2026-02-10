@@ -30,7 +30,8 @@ LABEL \
     description="Red Hat OpenShift Pipelines Manual Approval Gate" \
     io.k8s.display-name="Red Hat OpenShift Pipelines Manual Approval Gate" \
     io.k8s.description="Red Hat OpenShift Pipelines Manual Approval Gate" \
-    io.openshift.tags="pipelines,tekton,openshift"
+    io.openshift.tags="pipelines,tekton,openshift" \
+    cpe="cpe:/a:redhat:openshift_pipelines:1.20::el9"
 
 RUN groupadd -r -g 65532 nonroot && useradd --no-log-init -r -u 65532 -g nonroot nonroot
 USER 65532

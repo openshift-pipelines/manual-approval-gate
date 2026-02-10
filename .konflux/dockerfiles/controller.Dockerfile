@@ -13,7 +13,7 @@ RUN go build -ldflags="-X 'knative.dev/pkg/changeset.rev=$(cat /tmp/HEAD)'" -mod
     ./cmd/controller
 
 FROM $RUNTIME
-ARG VERSION=manual-approval-gate-controller-1-19-4
+ARG VERSION=manual-approval-gate-controller-1-19
 
 ENV KO_APP=/ko-app \
     KO_DATA_PATH=/kodata
@@ -24,14 +24,14 @@ COPY --from=builder /tmp/HEAD ${KO_DATA_PATH}/HEAD
 LABEL \
     com.redhat.component="openshift-pipelines-manual-approval-gate-rhel9-container" \
     name="openshift-pipelines/pipelines-manual-approval-gate-controller-rhel9" \
-    version=$VERSION \
-    cpe="cpe:/a:redhat:openshift_pipelines:1.19::el9" \
+    version=$VERSION \  
     summary="Red Hat OpenShift Pipelines Manual Approval Gate" \
     maintainer="pipelines-extcomm@redhat.com" \
     description="Red Hat OpenShift Pipelines Manual Approval Gate" \
     io.k8s.display-name="Red Hat OpenShift Pipelines Manual Approval Gate" \
     io.k8s.description="Red Hat OpenShift Pipelines Manual Approval Gate" \
-    io.openshift.tags="pipelines,tekton,openshift"
+    io.openshift.tags="pipelines,tekton,openshift" \
+    cpe="cpe:/a:redhat:openshift_pipelines:1.19::el9"
 
 RUN groupadd -r -g 65532 nonroot && useradd --no-log-init -r -u 65532 -g nonroot nonroot
 USER 65532
