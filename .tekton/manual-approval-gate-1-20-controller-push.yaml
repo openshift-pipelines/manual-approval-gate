@@ -12,7 +12,7 @@ metadata:
     pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch
       == "release-v0.6.0" &&
       ("***".pathChanged() ||
-      ".konflux/dockerfiles/controller-v1.24.Dockerfile".pathChanged() ||
+      ".konflux/dockerfiles/controller.Dockerfile".pathChanged() ||
       ".tekton/manual-approval-gate-1-20-controller-push.yaml".pathChanged())
   creationTimestamp: null
   labels:
@@ -30,7 +30,7 @@ spec:
   - name: output-image
     value: quay.io/redhat-user-workloads/tekton-ecosystem-tenant/1-20/manual-approval-gate-controller-rhel9:{{revision}}
   - name: dockerfile
-    value: .konflux/dockerfiles/controller-v1.24.Dockerfile
+    value: .konflux/dockerfiles/controller.Dockerfile
   - name: prefetch-input
     value: |
       {"type": "rpm", "path": ".konflux/rpms"}
