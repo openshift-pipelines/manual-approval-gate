@@ -12,7 +12,7 @@ RUN go build -ldflags="-X 'knative.dev/pkg/changeset.rev=$(cat /tmp/HEAD)'" -mod
     ./cmd/webhook
 
 FROM $RUNTIME
-ARG VERSION=manual-approval-gate-webhook-1.15.3
+ARG VERSION=manual-approval-gate-webhook-1.15.4
 
 ENV KO_APP=/ko-app
 

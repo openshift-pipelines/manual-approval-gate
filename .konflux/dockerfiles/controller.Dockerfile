@@ -12,7 +12,7 @@ RUN go build -ldflags="-X 'knative.dev/pkg/changeset.rev=$(cat /tmp/HEAD)'" -mod
     ./cmd/controller
 
 FROM $RUNTIME
-ARG VERSION=manual-approval-gate-controller-1.15.3
+ARG VERSION=manual-approval-gate-controller-1.15.4
 
 ENV KO_APP=/ko-app \
     KO_DATA_PATH=/kodata
