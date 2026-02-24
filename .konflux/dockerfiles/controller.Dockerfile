@@ -30,7 +30,8 @@ LABEL \
     description="Red Hat OpenShift Pipelines Manual Approval Gate" \
     io.k8s.display-name="Red Hat OpenShift Pipelines Manual Approval Gate" \
     io.k8s.description="Red Hat OpenShift Pipelines Manual Approval Gate" \
-    io.openshift.tags="pipelines,tekton,openshift"
+    io.openshift.tags="pipelines,tekton,openshift" \
+    cpe="cpe:/a:redhat:openshift_pipelines:1.21::el9"
 
 
 RUN microdnf install -y shadow-utils
