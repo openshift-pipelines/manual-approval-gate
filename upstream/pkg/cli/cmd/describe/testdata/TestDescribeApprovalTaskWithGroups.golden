@@ -1,0 +1,19 @@
+📦 Name:            at-group
+🗂  Namespace:       foo
+
+👥 Approvers
+   * admin-group (Group)
+   * dev-team (Group)
+   * alice
+
+👨‍💻 ApproverResponse
+
+Name                     ApproverResponse     Message
+bob(admin-group)         ✅                    LGTM
+charlie(admin-group)     ✅                    ---
+david(dev-team)          ❌                    Needs more testing
+
+🌡️  Status
+
+NumberOfApprovalsRequired     PendingApprovals     STATUS
+3                             0                    Approved
