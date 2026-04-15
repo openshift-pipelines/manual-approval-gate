@@ -1,0 +1,78 @@
+# Copyright 2024 The Tekton Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: manual-approval-gate-webhook
+  namespace: openshift-pipelines
+  labels:
+    version: "devel"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: manual-approval-gate-webhook
+  template:
+    metadata:
+      labels:
+        name: manual-approval-gate-webhook
+        app: manual-approval-gate-webhook
+    spec:
+      serviceAccountName: manual-approval-gate-webhook
+      containers:
+        - name: manual-approval
+          image: "ko://github.com/openshift-pipelines/manual-approval-gate/cmd/webhook"
+          env:
+            - name: SYSTEM_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: WEBHOOK_SERVICE_NAME
+              value: manual-approval-webhook
+            - name: WEBHOOK_SECRET_NAME
+              value: manual-approval-gate-webhook-certs
+            - name: CONFIG_LEADERELECTION_NAME
+              value: manual-approval-config-leader-election
+            - name: KUBERNETES_MIN_VERSION
+              value: "v1.28.0"
+          ports:
+            - name: https-webhook
+              containerPort: 8443
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+            # runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            # runAsUser: 65532
+            capabilities:
+              drop:
+                - ALL
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: manual-approval-webhook
+  namespace: openshift-pipelines
+  labels:
+    version: "devel"
+spec:
+  ports:
+    - name: https-webhook
+      port: 443
+      targetPort: 8443
+  selector:
+    name: manual-approval-gate-webhook

@@ -1,0 +1,18 @@
+apiVersion: tekton.dev/v1beta1
+kind: CustomRun
+metadata:
+  name: cr-4
+  namespace: test-2
+spec:
+  retries: 2
+  customRef:
+    apiVersion: openshift-pipelines.org/v1alpha1
+    kind: ApprovalTask
+  params:
+    - name: approvers
+      value:
+        - foo
+        - bar
+        - tekton
+    - name: numberOfApprovalsRequired
+      value: 2
