@@ -296,6 +296,29 @@ func extract(img v1.Image, w io.Writer) error {
 			// Some tools prepend everything with "./", so if we don't Clean the
 			// name, we may have duplicate entries, which angers tar-split.
 			header.Name = filepath.Clean(header.Name)
+
+			// Normalize absolute paths to relative to prevent writing outside
+			// the extraction root (Zip Slip / CVE-2018-15664 class).
+			// Many OCI tools emit absolute paths; stripping the leading slash
+			// preserves the entry while removing the danger.
+			if filepath.IsAbs(header.Name) {
+				header.Name = strings.TrimLeft(header.Name, "/")
+			}
+			// After normalization, reject any remaining path traversal.
+			if strings.HasPrefix(header.Name, "..") {
+				continue
+			}
+
+			// Reject symlinks and hardlinks that point outside the extraction
+			// root. An attacker can create a symlink to /etc and then write
+			// files through it in a subsequent layer entry.
+			if header.Typeflag == tar.TypeSymlink || header.Typeflag == tar.TypeLink {
+				linkTarget := filepath.Clean(header.Linkname)
+				if strings.HasPrefix(linkTarget, "..") || filepath.IsAbs(linkTarget) {
+					continue
+				}
+			}
+
 			// force PAX format to remove Name/Linkname length limit of 100 characters
 			// required by USTAR and to not depend on internal tar package guess which
 			// prefers USTAR over PAX
@@ -317,7 +340,7 @@ func extract(img v1.Image, w io.Writer) error {
 				name = filepath.Join(dirname, basename)
 			}
 
-			if _, ok := fileMap[name]; ok {
+			if _, ok := fileMap[name]; ok && !tombstone {
 				continue
 			}
 
@@ -328,7 +351,7 @@ func extract(img v1.Image, w io.Writer) error {
 
 			// mark file as handled. non-directory implicitly tombstones
 			// any entries with a matching (or child) name
-			fileMap[name] = tombstone || !(header.Typeflag == tar.TypeDir)
+			fileMap[name] = tombstone || (header.Typeflag != tar.TypeDir)
 			if !tombstone {
 				if err := tarWriter.WriteHeader(header); err != nil {
 					return err
@@ -345,10 +368,7 @@ func extract(img v1.Image, w io.Writer) error {
 }
 
 func inWhiteoutDir(fileMap map[string]bool, file string) bool {
-	for {
-		if file == "" {
-			break
-		}
+	for file != "" {
 		dirname := filepath.Dir(file)
 		if file == dirname {
 			break
@@ -359,13 +379,6 @@ func inWhiteoutDir(fileMap map[string]bool, file string) bool {
 		file = dirname
 	}
 	return false
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }
 
 // Time sets all timestamps in an image to the given timestamp.
@@ -524,7 +537,7 @@ func Canonical(img v1.Image) (v1.Image, error) {
 
 	cfg.Container = ""
 	cfg.Config.Hostname = ""
-	cfg.DockerVersion = ""
+	cfg.DockerVersion = "" //nolint:staticcheck // Field will be removed in next release
 
 	return ConfigFile(img, cfg)
 }
