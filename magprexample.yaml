@@ -1,0 +1,35 @@
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  name: example-approval-pr-users
+spec:
+  pipelineSpec:
+    tasks:
+      - name: before
+        taskSpec:
+          steps:
+            - image: busybox
+              name: before
+              script: echo before wait
+      - name: wait
+        taskRef:
+          apiVersion: openshift-pipelines.org/v1alpha1
+          kind: ApprovalTask
+        params:
+        - name: approvers
+          value:
+            - approver-user-1
+            - approver-user-3 # individual user 1        # individual user 2
+            - group:test-apalit-group-1     # group with 3 members (e.g., carol, dave, erin)
+        - name: numberOfApprovalsRequired
+          value: "4"
+        - name: description
+          value: "Simple PR using ApprovalTask with 2 users and 1 group"
+        runAfter: ["before"]
+      - name: after
+        taskSpec:
+          steps:
+            - image: busybox
+              name: after
+              script: echo after wait
+        runAfter: ["wait"]

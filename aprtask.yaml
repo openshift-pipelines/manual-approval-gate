@@ -1,0 +1,20 @@
+apiVersion: openshift-pipelines.org/v1alpha1
+kind: ApprovalTask
+metadata:
+  name: pr-custom-task-beta-zkl69-wait
+  namespace: default
+spec:
+  approvers:
+  - input: pending
+    name: foo
+    type: User
+  - input: pending
+    name: bar
+    type: User                       # New field added
+  - input: reject
+    users:
+     - name: alpha
+       input: approve
+     - name: beta
+       input: reject
+    name: tekton-team

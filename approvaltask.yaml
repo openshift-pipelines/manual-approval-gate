@@ -1,0 +1,21 @@
+apiVersion: openshift-pipelines.org/v1alpha1
+kind: ApprovalTask
+metadata:
+  name: pr-custom-task-beta-zkl69-wait
+  namespace: default
+spec:
+  approvers:
+  - input: pending
+    name: foo
+  - input: pending
+    name: bar
+  - input: pending
+    name: tekton
+  description: Approval Task Rocks!!!
+  numberOfApprovalsRequired: 2
+status:
+  approvers:
+  - foo
+  - bar
+  - tekton
+  state: pending

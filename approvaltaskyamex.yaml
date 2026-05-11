@@ -1,0 +1,54 @@
+apiVersion: openshift-pipelines.org/v1alpha1
+kind: ApprovalTask
+metadata:
+  annotations:
+    tekton.dev/last-applied-hash: bf0e98a5b4dc1eedd612da6fd74d4be939bc0a495073d925aa9a3d053543e751
+  creationTimestamp: "2025-09-09T18:00:47Z"
+  generation: 3
+  labels:
+    tekton.dev/customRun: example-approval-pr-wait
+    tekton.dev/memberOf: tasks
+    tekton.dev/pipeline: example-approval-pr
+    tekton.dev/pipelineRun: example-approval-pr
+    tekton.dev/pipelineRunUID: 7a633978-92aa-457a-b73e-eefaba83f966
+    tekton.dev/pipelineTask: wait
+  name: example-approval-pr-wait
+  namespace: default
+  ownerReferences:
+  - apiVersion: tekton.dev/v1beta1
+    blockOwnerDeletion: true
+    controller: true
+    kind: CustomRun
+    name: example-approval-pr-wait
+    uid: ddc164b8-d43d-43d6-8f9f-3e853390c22a
+  resourceVersion: "118075"
+  uid: 34849cd9-01dc-434f-a7ab-343c33f69a3b
+spec:
+  approvers:
+  - input: approve
+    name: user1
+    type: User
+  - input: approve
+    name: user2
+    type: User
+  - input: pending
+    name: tekon-dev
+    type: Group
+  description: Simple PR using ApprovalTask with 2 users and 1 group
+  numberOfApprovalsRequired: 2
+status:
+  approvalsReceived: 2
+  approvalsRequired: 2
+  approvers:
+  - user1
+  - user2
+  - tekon-dev
+  approversResponse:
+  - name: user2
+    response: approved
+    type: User
+  - name: user1
+    response: approved
+    type: User
+  startTime: "2025-09-09T18:00:47Z"
+  state: approved
