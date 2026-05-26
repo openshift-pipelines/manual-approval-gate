@@ -1,8 +1,6 @@
 module github.com/openshift-pipelines/manual-approval-gate
 
-go 1.23.0
-
-toolchain go1.23.8
+go 1.24.0
 
 require (
 	github.com/fatih/color v1.18.0
@@ -13,7 +11,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.10.0
-	github.com/tektoncd/pipeline v1.0.0
+	github.com/tektoncd/pipeline v1.0.2
 	github.com/tektoncd/plumbing v0.0.0-20221005220331-b2ddcdddc5e7
 	go.uber.org/zap v1.27.0
 	gomodules.xyz/jsonpatch/v2 v2.5.0
