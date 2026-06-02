@@ -1,0 +1,94 @@
+{
+  "apiVersion": "apiextensions.k8s.io/v1",
+  "kind": "CustomResourceDefinition",
+  "metadata": {
+    "annotations": {
+      "operatorframework.io/installed-alongside-9a071e28f19df444": "openshift-operators/openshift-pipelines-operator-rh.v5.0.5-698"
+    },
+    "creationTimestamp": "2025-10-14T12:08:01Z",
+    "generation": 1,
+    "labels": {
+      "olm.managed": "true",
+      "operator.tekton.dev/release": "v0.77.0",
+      "operators.coreos.com/openshift-pipelines-operator-rh.openshift-operators": "",
+      "version": "5.0.5-698"
+    },
+    "name": "tektonconfigs.operator.tekton.dev",
+    "resourceVersion": "1356058",
+    "uid": "618a200c-9e5c-43d9-b7e9-46aa1cd37c43"
+  },
+  "spec": {
+    "conversion": {
+      "strategy": "None"
+    },
+    "group": "operator.tekton.dev",
+    "names": {
+      "kind": "TektonConfig",
+      "listKind": "TektonConfigList",
+      "plural": "tektonconfigs",
+      "singular": "tektonconfig"
+    },
+    "scope": "Cluster",
+    "versions": [
+      {
+        "additionalPrinterColumns": [
+          {
+            "jsonPath": ".status.version",
+            "name": "Version",
+            "type": "string"
+          },
+          {
+            "jsonPath": ".status.conditions[?(@.type==\"Ready\")].status",
+            "name": "Ready",
+            "type": "string"
+          },
+          {
+            "jsonPath": ".status.conditions[?(@.type==\"Ready\")].message",
+            "name": "Reason",
+            "type": "string"
+          }
+        ],
+        "name": "v1alpha1",
+        "schema": {
+          "openAPIV3Schema": {
+            "description": "Schema for the tektonconfigs API",
+            "type": "object",
+            "x-kubernetes-preserve-unknown-fields": true
+          }
+        },
+        "served": true,
+        "storage": true,
+        "subresources": {
+          "status": {}
+        }
+      }
+    ]
+  },
+  "status": {
+    "acceptedNames": {
+      "kind": "TektonConfig",
+      "listKind": "TektonConfigList",
+      "plural": "tektonconfigs",
+      "singular": "tektonconfig"
+    },
+    "conditions": [
+      {
+        "lastTransitionTime": "2025-10-14T12:08:01Z",
+        "message": "no conflicts found",
+        "reason": "NoConflicts",
+        "status": "True",
+        "type": "NamesAccepted"
+      },
+      {
+        "lastTransitionTime": "2025-10-14T12:08:01Z",
+        "message": "the initial names have been accepted",
+        "reason": "InitialNamesAccepted",
+        "status": "True",
+        "type": "Established"
+      }
+    ],
+    "storedVersions": [
+      "v1alpha1"
+    ]
+  }
+}

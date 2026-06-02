@@ -1,0 +1,25 @@
+apiVersion: openshift-pipelines.org/v1alpha1
+kind: ApprovalTask
+metadata:
+  name: deployment-approval
+spec:
+  approvers:
+  - name: alice
+    type: User
+    input: pending
+    message: ""
+  - name: bob
+    type: User
+    input: pending
+    message: ""
+  - name: dev-team
+    type: Group
+    input: pending
+    message: ""
+    users:
+    - name: charlie
+      input: pending
+    - name: diana
+      input: pending
+  numberOfApprovalsRequired: 2
+  description: "Approve deploymen"

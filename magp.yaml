@@ -1,0 +1,22 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: example-manual-approval-pipeline
+spec:
+  tasks:
+  - name: example-manual-approval-task
+    taskRef:
+      apiVersion: openshift-pipelines.org/v1alpha1
+      kind: ApprovalTask
+    params:
+    - name: approvers
+      value:
+      - user1
+      - user2
+      - group:tekton-users
+    - name: description
+      value: Example manual approval task - please approve or reject
+    - name: numberOfApprovalsRequired
+      value: '3'
+    - name: timeout
+      value: '60m'
