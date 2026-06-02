@@ -1,6 +1,6 @@
 module github.com/openshift-pipelines/manual-approval-gate
 
-go 1.25.8
+go 1.25.10
 
 require (
 	github.com/fatih/color v1.19.0
