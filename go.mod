@@ -13,7 +13,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/tektoncd/pipeline v1.11.1
 	github.com/tektoncd/plumbing v0.0.0-20250430145243-3b7cd59879c1
-	go.uber.org/zap v1.27.1
+	go.uber.org/zap v1.28.0
 	gomodules.xyz/jsonpatch/v2 v2.5.0
 	gotest.tools/v3 v3.5.1
 	k8s.io/api v0.35.4
