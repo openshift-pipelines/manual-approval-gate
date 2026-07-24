@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/openshift-pipelines/manual-approval-gate/pkg/apis/approvaltask/v1alpha1"
@@ -99,13 +100,13 @@ func (r *reconciler) Admit(ctx context.Context, request *admissionv1.AdmissionRe
 		logger.Error("Unhandled kind: ", gvk)
 	}
 
-	// Decode new object 
+	// Decode new object
 	newObj, err := r.decodeNewObject(newBytes)
 	if err != nil {
 		return webhook.MakeErrorStatus("cannot decode incoming new object: %v", err)
 	}
 
-	// Validate structural requirements 
+	// Validate structural requirements
 	if err := validateApprovalTask(newObj, ctx); err != nil {
 		return webhook.MakeErrorStatus("validation failed: %v", err)
 	}
@@ -260,10 +261,8 @@ func ifUserExists(approvals []v1alpha1.ApproverDetails, request *admissionv1.Adm
 			}
 		case "Group":
 			// Check if user is in the group by checking the group name against user's groups
-			for _, userGroup := range request.UserInfo.Groups {
-				if approval.Name == userGroup {
-					return true
-				}
+			if slices.Contains(request.UserInfo.Groups, approval.Name) {
+				return true
 			}
 			// Also check if user is explicitly listed in the group's users
 			for _, user := range approval.Users {
@@ -281,15 +280,15 @@ func isApprovalRequired(approvaltask v1alpha1.ApprovalTask) bool {
 	if approvaltask.Status.State == "rejected" || approvaltask.Status.State == "approved" {
 		return false
 	}
-	
+
 	// Use the same logic as the controller to count approvals
 	approvedUsers := make(map[string]bool)
-	
+
 	for _, approver := range approvaltask.Spec.Approvers {
 		if approver.Input != "approve" {
 			continue
 		}
-		
+
 		if v1alpha1.DefaultedApproverType(approver.Type) == "User" {
 			approvedUsers[approver.Name] = true
 		} else if v1alpha1.DefaultedApproverType(approver.Type) == "Group" {
@@ -300,12 +299,12 @@ func isApprovalRequired(approvaltask v1alpha1.ApprovalTask) bool {
 			}
 		}
 	}
-	
+
 	// If we have enough approvals, the task should be approved (final state)
 	if len(approvedUsers) >= approvaltask.Spec.NumberOfApprovalsRequired {
 		return false
 	}
-	
+
 	return true
 }
 
@@ -332,9 +331,18 @@ func hasOnlyInputChanged(oldObjApprover, newObjApprover v1alpha1.ApproverDetails
 // IsUserApprovalChanged checks if there is a valid input change for the current user.
 func IsUserApprovalChanged(oldObjApprovers, newObjApprovers []v1alpha1.ApproverDetails, request *admissionv1.AdmissionRequest) (bool, error) {
 	currentUser := request.UserInfo.Username
+	hasValidChange := false
+	var validationError error
+
 	for i, approver := range oldObjApprovers {
 		if approver.Name == currentUser && v1alpha1.DefaultedApproverType(approver.Type) == "User" {
-			return hasOnlyInputChanged(approver, newObjApprovers[i])
+			changed, err := hasOnlyInputChanged(approver, newObjApprovers[i])
+			if err != nil {
+				validationError = err
+			} else if changed {
+				hasValidChange = true
+			}
+			// Don't return early - continue checking for group changes
 		}
 
 		if v1alpha1.DefaultedApproverType(approver.Type) == "Group" {
@@ -342,11 +350,8 @@ func IsUserApprovalChanged(oldObjApprovers, newObjApprovers []v1alpha1.ApproverD
 			isUserInGroup := false
 
 			// Check if user is in the group by checking the group name against user's groups
-			for _, userGroup := range request.UserInfo.Groups {
-				if approver.Name == userGroup {
-					isUserInGroup = true
-					break
-				}
+			if slices.Contains(request.UserInfo.Groups, approver.Name) {
+				isUserInGroup = true
 			}
 
 			// Also check if user is explicitly listed in the group's users
@@ -362,9 +367,10 @@ func IsUserApprovalChanged(oldObjApprovers, newObjApprovers []v1alpha1.ApproverD
 				if i < len(newObjApprovers) {
 					if approver.Input != newObjApprovers[i].Input {
 						if err := hasValidInputValue(newObjApprovers[i].Input); err != nil {
-							return false, err
+							validationError = err
+						} else {
+							hasValidChange = true
 						}
-						return true, nil
 					}
 				}
 
@@ -395,13 +401,14 @@ func IsUserApprovalChanged(oldObjApprovers, newObjApprovers []v1alpha1.ApproverD
 						for _, user := range newObjApprovers[i].Users {
 							if user.Name == currentUser {
 								if err := hasValidInputValue(user.Input); err != nil {
-									return false, err
+									validationError = err
+								} else {
+									hasValidChange = true
 								}
-								return true, nil
+								break
 							}
 						}
 					}
-					return true, nil
 				}
 
 				// Allow changes to individual user inputs within the group
@@ -432,23 +439,30 @@ func IsUserApprovalChanged(oldObjApprovers, newObjApprovers []v1alpha1.ApproverD
 				// Allow user to change their input if they're in both old and new lists
 				if userFoundInOld && userFoundInNew && oldUserInput != newUserInput {
 					if err := hasValidInputValue(newUserInput); err != nil {
-						return false, err
+						validationError = err
+					} else {
+						hasValidChange = true
 					}
-					return true, nil
 				}
 			}
 		}
 	}
-	return false, nil
+
+	// If there was a validation error, return it
+	if validationError != nil {
+		return false, validationError
+	}
+
+	return hasValidChange, nil
 }
 
 // checkIfUserAlreadyDecided checks if a user is trying to re-approve/re-reject a task they've already decided on
 func checkIfUserAlreadyDecided(oldObj *v1alpha1.ApprovalTask, newObj *v1alpha1.ApprovalTask, request *admissionv1.AdmissionRequest) string {
 	currentUser := request.UserInfo.Username
-	
+
 	// Get user's desired new input from the incoming object
 	desiredInput := ""
-	
+
 	// First check if user is an individual approver
 	for _, approver := range newObj.Spec.Approvers {
 		if v1alpha1.DefaultedApproverType(approver.Type) == "User" && approver.Name == currentUser {
@@ -456,7 +470,7 @@ func checkIfUserAlreadyDecided(oldObj *v1alpha1.ApprovalTask, newObj *v1alpha1.A
 			break
 		}
 	}
-	
+
 	// If not found as individual user, check if user is in any group
 	if desiredInput == "" {
 		for _, approver := range newObj.Spec.Approvers {
@@ -471,21 +485,16 @@ func checkIfUserAlreadyDecided(oldObj *v1alpha1.ApprovalTask, newObj *v1alpha1.A
 				if desiredInput != "" {
 					break
 				}
-				
+
 				// Check if user is in the group via RBAC (group-level input)
-				for _, userGroup := range request.UserInfo.Groups {
-					if approver.Name == userGroup {
-						desiredInput = approver.Input
-						break
-					}
-				}
-				if desiredInput != "" {
+				if slices.Contains(request.UserInfo.Groups, approver.Name) {
+					desiredInput = approver.Input
 					break
 				}
 			}
 		}
 	}
-	
+
 	// Check status.approversResponse to see if user has already made a decision
 	for _, approverResponse := range oldObj.Status.ApproversResponse {
 		if v1alpha1.DefaultedApproverType(approverResponse.Type) == "User" && approverResponse.Name == currentUser {
@@ -496,7 +505,7 @@ func checkIfUserAlreadyDecided(oldObj *v1alpha1.ApprovalTask, newObj *v1alpha1.A
 				return "User has already rejected"
 			}
 		}
-		
+
 		// Check if user is in any group that has responded
 		if v1alpha1.DefaultedApproverType(approverResponse.Type) == "Group" {
 			for _, member := range approverResponse.GroupMembers {
@@ -511,7 +520,7 @@ func checkIfUserAlreadyDecided(oldObj *v1alpha1.ApprovalTask, newObj *v1alpha1.A
 			}
 		}
 	}
-	
+
 	return "" // No issue found
 }
 
@@ -530,11 +539,8 @@ func CheckOtherUsersForInvalidChanges(oldObjApprovers, newObjApprover []v1alpha1
 			isUserInGroup := false
 
 			// Check if user is in the group by checking the group name against user's groups
-			for _, userGroup := range request.UserInfo.Groups {
-				if approver.Name == userGroup {
-					isUserInGroup = true
-					break
-				}
+			if slices.Contains(request.UserInfo.Groups, approver.Name) {
+				isUserInGroup = true
 			}
 
 			// Also check if user is explicitly listed in the group's users
@@ -596,13 +602,13 @@ func CheckOtherUsersForInvalidChanges(oldObjApprovers, newObjApprover []v1alpha1
 	return true
 }
 
-// validateApprovalTask validates the complete ApprovalTask resource 
+// validateApprovalTask validates the complete ApprovalTask resource
 func validateApprovalTask(approvalTask *v1alpha1.ApprovalTask, ctx context.Context) error {
 	// Validate spec
 	if err := validateApprovalTaskSpec(&approvalTask.Spec, ctx); err != nil {
 		return fmt.Errorf("spec validation failed: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -622,11 +628,11 @@ func validateApprovalTaskSpec(spec *v1alpha1.ApprovalTaskSpec, ctx context.Conte
 	approverNames := make(map[string]int) // name -> index
 	for i, approver := range spec.Approvers {
 		fieldPath := fmt.Sprintf("approvers[%d]", i)
-		
+
 		if err := validateApprover(approver, fieldPath); err != nil {
 			return err
 		}
-		
+
 		// Check for duplicate approver names
 		approverKey := fmt.Sprintf("%s:%s", v1alpha1.DefaultedApproverType(approver.Type), approver.Name)
 		if existingIndex, exists := approverNames[approverKey]; exists {
@@ -665,18 +671,18 @@ func validateApprover(approver v1alpha1.ApproverDetails, fieldPath string) error
 
 	// Validate users for group type
 	if approverType == "Group" {
-		
+
 		// Track duplicate users within the group
 		groupUsers := make(map[string]int) // username -> index
 		for j, user := range approver.Users {
 			userFieldPath := fmt.Sprintf("%s.users[%d]", fieldPath, j)
-			
+
 			if strings.TrimSpace(user.Name) == "" {
 				return fmt.Errorf("%s.name: required field is missing", userFieldPath)
 			} else if err := validateUserName(user.Name); err != nil {
 				return fmt.Errorf("%s.name: %w", userFieldPath, err)
 			}
-			
+
 			// Check for duplicate users within the group
 			if existingIndex, exists := groupUsers[user.Name]; exists {
 				return fmt.Errorf("%s.name: duplicate user '%s' within group (also found at %s.users[%d])", userFieldPath, user.Name, fieldPath, existingIndex)
@@ -697,12 +703,12 @@ func validateNameFormat(name, fieldType string) error {
 	if strings.TrimSpace(name) == "" {
 		return fmt.Errorf("%s cannot be empty", fieldType)
 	}
-	
+
 	// Kubernetes names cannot contain spaces
 	if strings.Contains(name, " ") {
 		return fmt.Errorf("%s cannot contain spaces", fieldType)
 	}
-	
+
 	return nil
 }
 
@@ -712,11 +718,11 @@ func validateUserName(name string) error {
 	if strings.TrimSpace(name) == "" {
 		return fmt.Errorf("username cannot be empty")
 	}
-	
+
 	if strings.HasPrefix(name, "group:") {
 		return fmt.Errorf("username cannot start with 'group:' prefix - use type: Group for group approvers")
 	}
-	
+
 	return nil
 }
 
@@ -725,23 +731,18 @@ func validateGroupName(name string) error {
 	if err := validateNameFormat(name, "group name"); err != nil {
 		return err
 	}
-	
+
 	// Group names should not contain colons to avoid confusion with user prefixes
 	if strings.Contains(name, ":") {
 		return fmt.Errorf("group name cannot contain colons")
 	}
-	
+
 	return nil
 }
 
 // webhookContains checks if a slice contains a string
 func webhookContains(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(slice, item)
 }
 
 // decodeNewObject decodes the incoming new object
@@ -780,7 +781,7 @@ func validateApproverInputsForCreate(approvalTask *v1alpha1.ApprovalTask) error 
 		if approver.Input != "pending" {
 			return fmt.Errorf("approvers[%d].input: must be 'pending' for new ApprovalTask, got '%s'", i, approver.Input)
 		}
-		
+
 		// For group approvers, also validate that all users within the group have pending input
 		if v1alpha1.DefaultedApproverType(approver.Type) == "Group" {
 			for j, user := range approver.Users {
