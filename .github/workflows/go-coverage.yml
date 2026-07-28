@@ -1,0 +1,35 @@
+on:
+  push:
+    branches: [ main ]
+
+name: Go coverage
+
+permissions:
+  contents: read
+
+jobs:
+  go-coverage:
+    name: Go coverage
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Generate coverage
+        run: go test -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v6
+        with:
+          files: coverage.out
+          flags: unit-tests
+          use_oidc: true
+          fail_ci_if_error: false
