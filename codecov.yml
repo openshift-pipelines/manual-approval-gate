@@ -1,0 +1,16 @@
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 5%
+    patch:
+      default: false
+
+ignore:
+- "pkg/apis/approvaltask/v1alpha1/zz_generated.deepcopy.go"
+- "**/fake/**"
+- "hack/**"
+- "test/**"
+- "pkg/client/**"
+- "vendor/**"
