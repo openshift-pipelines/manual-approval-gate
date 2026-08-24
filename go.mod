@@ -19,9 +19,9 @@ require (
 	gomodules.xyz/jsonpatch/v2 v2.5.0
 	gotest.tools/v3 v3.5.1
 	k8s.io/api v0.36.3
-	k8s.io/apimachinery v0.36.3
+	k8s.io/apimachinery v0.36.4
 	k8s.io/client-go v0.36.3
-	k8s.io/code-generator v0.36.3
+	k8s.io/code-generator v0.36.4
 	k8s.io/kube-openapi v0.0.0-20260317180543-43fb72c5454a
 	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2
 	knative.dev/pkg v0.0.0-20260622140654-39ebae2ee2dc
