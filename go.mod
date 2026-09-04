@@ -9,7 +9,7 @@ require (
 	github.com/hashicorp/golang-lru v1.0.2
 	github.com/openshift/client-go v0.0.0-20260330134249-7e1499aaacd7
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/client_model v0.6.2
+	github.com/prometheus/client_model v0.6.3
 	github.com/prometheus/common v0.71.0
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.12.1
