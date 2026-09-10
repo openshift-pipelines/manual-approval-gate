@@ -24,9 +24,6 @@ subjects:
   - kind: ServiceAccount
     name: manual-approval-gate-controller
     namespace: tekton-pipelines
-  - kind: Group
-    name: system:authenticated
-    apiGroup: rbac.authorization.k8s.io
 roleRef:
   kind: ClusterRole
   name: manual-approval-gate-controller-cluster-access

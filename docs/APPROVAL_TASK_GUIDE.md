@@ -5,6 +5,7 @@ This guide provides comprehensive documentation for using ApprovalTask in your T
 ## Table of Contents
 
 - [Overview](#overview)
+- [Required RBAC for Approvers](#required-rbac-for-approvers)
 - [ApprovalTask Structure](#approvaltask-structure)
 - [Basic Examples](#basic-examples)
 - [Advanced Examples](#advanced-examples)
@@ -13,6 +14,49 @@ This guide provides comprehensive documentation for using ApprovalTask in your T
 ## Overview
 
 ApprovalTask is a Kubernetes Custom Resource that allows you to add manual approval gates in your CI/CD pipelines. When a pipeline reaches an ApprovalTask, it pauses execution until the required number of approvals are received from designated approvers.
+
+## Required RBAC for Approvers
+
+> **⚠️ Breaking change**: Prior releases bound the `system:authenticated`
+> group to the controller's `ClusterRole`, so any authenticated user or
+> `ServiceAccount` in the cluster could approve, reject, list, or describe
+> `ApprovalTask`s in **any** namespace — with no RBAC setup required. This
+> was a critical security issue (it allowed a complete approval-gate bypass)
+> and has been fixed by removing that binding. As a result, approvers now
+> need an explicit RBAC grant.
+
+- Users or `ServiceAccount`s that already hold the built-in `admin` or
+  `edit` `ClusterRole` in a namespace (the default for OpenShift project
+  owners) automatically gain `approvaltasks` access in that namespace —
+  no additional action is needed.
+- Everyone else (approver groups, bots, cross-namespace approvers, or
+  clusters with custom roles that don't aggregate to `admin`/`edit`) must
+  be bound to the `manual-approval-gate-approver` `ClusterRole` with a
+  namespace-scoped `RoleBinding`:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: manual-approval-gate-approver
+  namespace: <namespace>
+subjects:
+  - kind: User # or Group / ServiceAccount
+    name: <approver-name>
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: manual-approval-gate-approver
+  apiGroup: rbac.authorization.k8s.io
+```
+
+### Upgrade impact
+
+If you are upgrading from an earlier version, approvers who previously
+worked without any RBAC setup will start seeing `Forbidden` errors from
+`tkn-approvaltask approve/reject/list/describe` (or from direct API/`kubectl`
+access) until the `RoleBinding` above is created in the relevant
+namespace(s).
 
 ## ApprovalTask Structure
 
