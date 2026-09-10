@@ -150,6 +150,18 @@ func (r *reconciler) Admit(ctx context.Context, request *admissionv1.AdmissionRe
 		}
 	}
 
+	// Approver list membership is immutable: reject additions, removals, and identity changes
+	if len(newObj.Spec.Approvers) != len(oldObj.Spec.Approvers) {
+		return webhook.MakeErrorStatus("spec.approvers list membership is immutable")
+	}
+	for i := range oldObj.Spec.Approvers {
+		if oldObj.Spec.Approvers[i].Name != newObj.Spec.Approvers[i].Name ||
+			v1alpha1.DefaultedApproverType(oldObj.Spec.Approvers[i].Type) !=
+				v1alpha1.DefaultedApproverType(newObj.Spec.Approvers[i].Type) {
+			return webhook.MakeErrorStatus("spec.approvers[%d] identity (name/type) is immutable", i)
+		}
+	}
+
 	// Check if user is updating the input for his name only
 	var userApprovalChanged bool
 	errMsg := fmt.Errorf("User can only update their own approval input")
