@@ -81,6 +81,26 @@ function install_manual_approval_crd() {
   wait_until_pods_running tekton-pipelines || fail_test "Manual Approval did not come up"
 }
 
+function setup_approver_rbac() {
+  local namespace=$1
+  echo ">> Granting approver RBAC in namespace ${namespace}"
+  cat <<EOF | kubectl apply -f -
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: manual-approval-gate-approver
+  namespace: ${namespace}
+subjects:
+  - kind: Group
+    name: system:authenticated
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: manual-approval-gate-approver
+  apiGroup: rbac.authorization.k8s.io
+EOF
+}
+
 function wait_until_pods_running() {
   echo -n "Waiting until all pods in namespace $1 are up"
   for i in {1..150}; do  # timeout after 5 minutes
@@ -115,6 +135,7 @@ main() {
 	reinstall_kind
   install_pipeline_crd
   install_manual_approval_crd
+  setup_approver_rbac default
 
   echo "Running Go e2e tests"
   go test -v -count=1 -tags=e2e -timeout=20m ./test/e2e_test.go ${KUBECONFIG_PARAM} || fail_test "E2E test failed....."
@@ -126,6 +147,10 @@ main() {
   kubectl create ns test-3
   kubectl create ns test-4
   kubectl create ns test-5
+
+  for ns in test-1 test-2 test-3 test-4 test-5; do
+    setup_approver_rbac "${ns}"
+  done
 
   go build -o tkn-approvaltask github.com/openshift-pipelines/manual-approval-gate/cmd/tkn-approvaltask
   export TEST_CLIENT_BINARY="${PWD}/tkn-approvaltask"

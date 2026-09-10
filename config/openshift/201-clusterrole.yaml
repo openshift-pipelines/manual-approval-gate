@@ -104,6 +104,23 @@ rules:
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
+  name: manual-approval-gate-approver
+  labels:
+    app.kubernetes.io/component: approver
+    app.kubernetes.io/instance: default
+    app.kubernetes.io/part-of: openshift-pipelines-manual-approval-gates
+    # Aggregate into the default admin/edit ClusterRoles so users who already
+    # hold admin/edit in a namespace automatically get approvaltasks access.
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+    rbac.authorization.k8s.io/aggregate-to-edit: "true"
+rules:
+  - apiGroups: ["openshift-pipelines.org"]
+    resources: ["approvaltasks"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
   name: manual-approval-gate-leader-election
   labels:
     app.kubernetes.io/instance: default
