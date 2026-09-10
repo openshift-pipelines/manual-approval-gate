@@ -130,6 +130,14 @@ func (r *reconciler) Admit(ctx context.Context, request *admissionv1.AdmissionRe
 		return webhook.MakeErrorStatus("cannot decode incoming old object: %v", err)
 	}
 
+	// Spec-level fields are immutable after creation
+	if newObj.Spec.NumberOfApprovalsRequired != oldObj.Spec.NumberOfApprovalsRequired {
+		return webhook.MakeErrorStatus("spec.numberOfApprovalsRequired is immutable")
+	}
+	if newObj.Spec.Description != oldObj.Spec.Description {
+		return webhook.MakeErrorStatus("spec.description is immutable")
+	}
+
 	// Check if approval is required by the approver
 	if !isApprovalRequired(*oldObj) {
 		return &admissionv1.AdmissionResponse{

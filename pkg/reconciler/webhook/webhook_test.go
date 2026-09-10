@@ -15,6 +15,10 @@ import (
 )
 
 func makeApprovalTask(approvers []v1alpha1.ApproverDetails, nRequired int) *v1alpha1.ApprovalTask {
+	return makeApprovalTaskWithDesc(approvers, nRequired, "")
+}
+
+func makeApprovalTaskWithDesc(approvers []v1alpha1.ApproverDetails, nRequired int, description string) *v1alpha1.ApprovalTask {
 	return &v1alpha1.ApprovalTask{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "openshift-pipelines.org/v1alpha1",
@@ -27,6 +31,7 @@ func makeApprovalTask(approvers []v1alpha1.ApproverDetails, nRequired int) *v1al
 		Spec: v1alpha1.ApprovalTaskSpec{
 			Approvers:                 approvers,
 			NumberOfApprovalsRequired: nRequired,
+			Description:               description,
 		},
 	}
 }
@@ -156,7 +161,7 @@ func TestAdmit_ApproverListImmutability(t *testing.T) {
 			wantAllowed: true,
 		},
 		{
-			name:   "exploit from SRVKP-12510: phantom approver injection blocked",
+			name:   "phantom approver injection blocked",
 			oldObj: makeApprovalTask(baseApprovers, 3),
 			newObj: makeApprovalTask([]v1alpha1.ApproverDetails{
 				{Name: "alice", Type: "User", Input: "approve"},
@@ -168,6 +173,99 @@ func TestAdmit_ApproverListImmutability(t *testing.T) {
 			username:    "alice",
 			wantAllowed: false,
 			wantMessage: "spec.approvers list membership is immutable",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := newTestReconciler()
+			ctx := logging.WithLogger(context.Background(), logtesting.TestLogger(t))
+			r.withContext = func(context.Context) context.Context { return ctx }
+
+			req := makeUpdateRequest(t, tt.oldObj, tt.newObj, tt.username, nil)
+			resp := r.Admit(ctx, req)
+
+			if resp.Allowed != tt.wantAllowed {
+				msg := ""
+				if resp.Result != nil {
+					msg = resp.Result.Message
+				}
+				t.Errorf("Allowed = %v, want %v (message: %s)", resp.Allowed, tt.wantAllowed, msg)
+			}
+			if !tt.wantAllowed && tt.wantMessage != "" {
+				got := ""
+				if resp.Result != nil {
+					got = resp.Result.Message
+				}
+				if got != tt.wantMessage {
+					t.Errorf("message = %q, want %q", got, tt.wantMessage)
+				}
+			}
+		})
+	}
+}
+
+func TestAdmit_SpecFieldImmutability(t *testing.T) {
+	baseApprovers := []v1alpha1.ApproverDetails{
+		{Name: "alice", Type: "User", Input: "pending"},
+		{Name: "bob", Type: "User", Input: "pending"},
+		{Name: "carol", Type: "User", Input: "pending"},
+	}
+
+	tests := []struct {
+		name        string
+		oldObj      *v1alpha1.ApprovalTask
+		newObj      *v1alpha1.ApprovalTask
+		username    string
+		wantAllowed bool
+		wantMessage string
+	}{
+		{
+			name:   "numberOfApprovalsRequired lowered rejected",
+			oldObj: makeApprovalTask(baseApprovers, 3),
+			newObj: makeApprovalTask([]v1alpha1.ApproverDetails{
+				{Name: "alice", Type: "User", Input: "approve"},
+				{Name: "bob", Type: "User", Input: "pending"},
+				{Name: "carol", Type: "User", Input: "pending"},
+			}, 1),
+			username:    "alice",
+			wantAllowed: false,
+			wantMessage: "spec.numberOfApprovalsRequired is immutable",
+		},
+		{
+			name:   "numberOfApprovalsRequired raised rejected",
+			oldObj: makeApprovalTask(baseApprovers, 2),
+			newObj: makeApprovalTask([]v1alpha1.ApproverDetails{
+				{Name: "alice", Type: "User", Input: "approve"},
+				{Name: "bob", Type: "User", Input: "pending"},
+				{Name: "carol", Type: "User", Input: "pending"},
+			}, 3),
+			username:    "alice",
+			wantAllowed: false,
+			wantMessage: "spec.numberOfApprovalsRequired is immutable",
+		},
+		{
+			name:   "description changed rejected",
+			oldObj: makeApprovalTaskWithDesc(baseApprovers, 3, "deploy to prod"),
+			newObj: makeApprovalTaskWithDesc([]v1alpha1.ApproverDetails{
+				{Name: "alice", Type: "User", Input: "approve"},
+				{Name: "bob", Type: "User", Input: "pending"},
+				{Name: "carol", Type: "User", Input: "pending"},
+			}, 3, "deploy to staging"),
+			username:    "alice",
+			wantAllowed: false,
+			wantMessage: "spec.description is immutable",
+		},
+		{
+			name:   "legitimate approval with unchanged spec allowed",
+			oldObj: makeApprovalTaskWithDesc(baseApprovers, 3, "deploy to prod"),
+			newObj: makeApprovalTaskWithDesc([]v1alpha1.ApproverDetails{
+				{Name: "alice", Type: "User", Input: "approve"},
+				{Name: "bob", Type: "User", Input: "pending"},
+				{Name: "carol", Type: "User", Input: "pending"},
+			}, 3, "deploy to prod"),
+			username:    "alice",
+			wantAllowed: true,
 		},
 	}
 
