@@ -11,7 +11,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
-	github.com/tektoncd/pipeline v1.11.0
+	github.com/tektoncd/pipeline v1.11.1
 	github.com/tektoncd/plumbing v0.0.0-20250430145243-3b7cd59879c1
 	go.uber.org/zap v1.27.1
 	gomodules.xyz/jsonpatch/v2 v2.5.0
