@@ -13,7 +13,7 @@ require (
 	github.com/prometheus/common v0.72.1
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.12.1
-	github.com/tektoncd/pipeline v1.17.0
+	github.com/tektoncd/pipeline v1.17.1
 	github.com/tektoncd/plumbing v0.0.0-20250430145243-3b7cd59879c1
 	go.uber.org/zap v1.28.0
 	gomodules.xyz/jsonpatch/v2 v2.5.0
