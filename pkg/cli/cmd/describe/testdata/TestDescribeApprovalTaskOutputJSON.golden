@@ -1,0 +1,38 @@
+{
+  "kind": "ApprovalTask",
+  "apiVersion": "openshift-pipelines.org/v1alpha1",
+  "metadata": {
+    "name": "at-1",
+    "namespace": "foo",
+    "creationTimestamp": null
+  },
+  "spec": {
+    "approvers": [
+      {
+        "name": "tekton",
+        "input": "reject",
+        "type": "User"
+      },
+      {
+        "name": "cli",
+        "input": "pending",
+        "type": "User"
+      }
+    ],
+    "numberOfApprovalsRequired": 2
+  },
+  "status": {
+    "state": "rejected",
+    "approvers": [
+      "tekton",
+      "cli"
+    ],
+    "approversResponse": [
+      {
+        "name": "tekton",
+        "response": "rejected",
+        "type": "User"
+      }
+    ]
+  }
+}
