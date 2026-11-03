@@ -718,6 +718,55 @@ func TestApproveManualApprovalTaskWithGroup(t *testing.T) {
 		assert.Equal(t, "approve", devGroup.Users[0].Input, "User1 should have approved")
 	})
 
+	// A valid self-vote must not let user2 erase or change user1's recorded vote.
+	t.Run("user2-preserves-existing-group-votes", func(t *testing.T) {
+		// Read the live list so unrelated approvers are preserved by the merge patch.
+		before, err := clients.ApprovalTaskClient.ApprovalTasks("default").Get(context.TODO(), cr.GetName(), metav1.GetOptions{})
+		if err != nil {
+			t.Fatal("Failed to get the approval task", err)
+		}
+		clients.Config.Impersonate = rest.ImpersonationConfig{UserName: "user2", Groups: []string{"dev"}}
+		clientSet, err := manualApprovalVersioned.NewForConfig(clients.Config)
+		if err != nil {
+			t.Fatal("Failed to set the user", err)
+		}
+		clients.ApprovalTaskClient = clientSet.OpenshiftpipelinesV1alpha1()
+		// Each update adds user2 correctly, isolating the other-member check.
+		cases := []struct {
+			name  string                 // name identifies the invalid preservation attempt.
+			users []v1alpha1.UserDetails // users contains user2's vote and optional changed user1.
+		}{
+			{name: "remove-user1", users: []v1alpha1.UserDetails{{Name: "user2", Input: "approve"}}},
+			{name: "change-user1", users: []v1alpha1.UserDetails{{Name: "user1", Input: "reject"}, {Name: "user2", Input: "approve"}}},
+		}
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				// Change only the group members, retaining the complete approver list.
+				updated := before.DeepCopy()
+				for i := range updated.Spec.Approvers {
+					if updated.Spec.Approvers[i].Name == "dev" {
+						updated.Spec.Approvers[i].Users = tc.users
+					}
+				}
+				patch, err := json.Marshal(map[string]interface{}{"spec": map[string]interface{}{"approvers": updated.Spec.Approvers}})
+				if err != nil {
+					t.Fatal(err)
+				}
+				_, err = clients.ApprovalTaskClient.ApprovalTasks("default").Patch(context.TODO(), cr.GetName(), types.MergePatchType, patch, metav1.PatchOptions{})
+				if !assert.Error(t, err, "another member's vote must be protected") {
+					t.FailNow()
+				}
+				assert.Contains(t, err.Error(), "User can only update their own approval input")
+				after, err := clients.ApprovalTaskClient.ApprovalTasks("default").Get(context.TODO(), cr.GetName(), metav1.GetOptions{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				assert.Equal(t, before.Spec.Approvers, after.Spec.Approvers, "a denied write must leave the stored votes intact")
+				assert.Equal(t, "pending", after.Status.State)
+			})
+		}
+	})
+
 	// Test that user2 can also add themselves to the group
 	t.Run("user2-adds-self-to-group", func(t *testing.T) {
 		users := []map[string]interface{}{
