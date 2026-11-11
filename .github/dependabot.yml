@@ -7,8 +7,6 @@ updates:
       labels:
         - ok-to-test
         - dependencies
-        - release-note-none
-        - kind/misc
       ignore:
         - dependency-name: k8s.io/*
           update-types:
@@ -30,8 +28,6 @@ updates:
       labels:
         - ok-to-test
         - dependencies
-        - release-note-none
-        - kind/misc
       groups:
         all:
           patterns:
@@ -48,8 +44,6 @@ updates:
       labels:
         - ok-to-test
         - dependencies
-        - release-note-none
-        - kind/misc
       ignore:
         - dependency-name: k8s.io/*
           update-types:
@@ -78,8 +72,6 @@ updates:
       labels:
         - ok-to-test
         - dependencies
-        - release-note-none
-        - kind/misc
       ignore:
         - dependency-name: '*'
           update-types:
@@ -101,8 +93,6 @@ updates:
       labels:
         - ok-to-test
         - dependencies
-        - release-note-none
-        - kind/misc
       ignore:
         - dependency-name: k8s.io/*
           update-types:
@@ -131,8 +121,6 @@ updates:
       labels:
         - ok-to-test
         - dependencies
-        - release-note-none
-        - kind/misc
       ignore:
         - dependency-name: '*'
           update-types:
