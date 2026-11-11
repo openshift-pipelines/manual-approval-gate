@@ -73,7 +73,7 @@ func TestDescribeApprovalTask(t *testing.T) {
 	c := command(t, approvaltasks, ns, dc)
 	args := []string{"at-1", "-n", "foo"}
 
-	output, err := test.ExecuteCommand(c, args...)
+	output, _ := test.ExecuteCommand(c, args...)
 	golden.Assert(t, output, strings.ReplaceAll(fmt.Sprintf("%s.golden", t.Name()), "/", "-"))
 }
 
@@ -94,7 +94,7 @@ func TestDescribeApprovalTaskNotFound(t *testing.T) {
 	c := command(t, []*v1alpha1.ApprovalTask{}, ns, dc)
 	args := []string{"at-1", "-n", "foo"}
 
-	output, err := test.ExecuteCommand(c, args...)
+	output, _ := test.ExecuteCommand(c, args...)
 
 	expectedOutput := "Error: failed to Get ApprovalTasks at-1 from foo namespace\n"
 	if output != expectedOutput {
@@ -188,7 +188,129 @@ func TestDescribeApprovalTaskWithGroups(t *testing.T) {
 	c := command(t, approvaltasks, ns, dc)
 	args := []string{"at-group", "-n", "foo"}
 
-	output, err := test.ExecuteCommand(c, args...)
+	output, _ := test.ExecuteCommand(c, args...)
+	golden.Assert(t, output, strings.ReplaceAll(fmt.Sprintf("%s.golden", t.Name()), "/", "-"))
+}
+
+func TestDescribeApprovalTaskOutputYAML(t *testing.T) {
+	approvaltasks := []*v1alpha1.ApprovalTask{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "at-1",
+				Namespace: "foo",
+			},
+			Spec: v1alpha1.ApprovalTaskSpec{
+				Approvers: []v1alpha1.ApproverDetails{
+					{
+						Name:  "tekton",
+						Input: "reject",
+						Type:  "User",
+					},
+					{
+						Name:  "cli",
+						Input: "pending",
+						Type:  "User",
+					},
+				},
+				NumberOfApprovalsRequired: 2,
+			},
+			Status: v1alpha1.ApprovalTaskStatus{
+				Approvers: []string{
+					"tekton",
+					"cli",
+				},
+				ApproversResponse: []v1alpha1.ApproverState{
+					{
+						Name:     "tekton",
+						Type:     "User",
+						Response: "rejected",
+					},
+				},
+				State: "rejected",
+			},
+		},
+	}
+
+	ns := []*corev1.Namespace{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "namespace",
+			},
+		},
+	}
+
+	dc, err := testDynamic.Client(
+		cb.UnstructuredV1alpha1(approvaltasks[0], "v1alpha1"),
+	)
+	if err != nil {
+		t.Errorf("unable to create dynamic client: %v", err)
+	}
+
+	c := command(t, approvaltasks, ns, dc)
+	args := []string{"at-1", "-n", "foo", "-o", "yaml"}
+
+	output, _ := test.ExecuteCommand(c, args...)
+	golden.Assert(t, output, strings.ReplaceAll(fmt.Sprintf("%s.golden", t.Name()), "/", "-"))
+}
+
+func TestDescribeApprovalTaskOutputJSON(t *testing.T) {
+	approvaltasks := []*v1alpha1.ApprovalTask{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "at-1",
+				Namespace: "foo",
+			},
+			Spec: v1alpha1.ApprovalTaskSpec{
+				Approvers: []v1alpha1.ApproverDetails{
+					{
+						Name:  "tekton",
+						Input: "reject",
+						Type:  "User",
+					},
+					{
+						Name:  "cli",
+						Input: "pending",
+						Type:  "User",
+					},
+				},
+				NumberOfApprovalsRequired: 2,
+			},
+			Status: v1alpha1.ApprovalTaskStatus{
+				Approvers: []string{
+					"tekton",
+					"cli",
+				},
+				ApproversResponse: []v1alpha1.ApproverState{
+					{
+						Name:     "tekton",
+						Type:     "User",
+						Response: "rejected",
+					},
+				},
+				State: "rejected",
+			},
+		},
+	}
+
+	ns := []*corev1.Namespace{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "namespace",
+			},
+		},
+	}
+
+	dc, err := testDynamic.Client(
+		cb.UnstructuredV1alpha1(approvaltasks[0], "v1alpha1"),
+	)
+	if err != nil {
+		t.Errorf("unable to create dynamic client: %v", err)
+	}
+
+	c := command(t, approvaltasks, ns, dc)
+	args := []string{"at-1", "-n", "foo", "-o", "json"}
+
+	output, _ := test.ExecuteCommand(c, args...)
 	golden.Assert(t, output, strings.ReplaceAll(fmt.Sprintf("%s.golden", t.Name()), "/", "-"))
 }
 
