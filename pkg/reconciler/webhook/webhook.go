@@ -535,7 +535,7 @@ func checkIfUserAlreadyDecided(oldObj *v1alpha1.ApprovalTask, newObj *v1alpha1.A
 	return "" // No issue found
 }
 
-// CheckOtherUsersForInvalidChanges validates that no other approvers inputs have been changed
+// CheckOtherUsersForInvalidChanges validates that other approvers are retained with unchanged inputs.
 func CheckOtherUsersForInvalidChanges(oldObjApprovers, newObjApprover []v1alpha1.ApproverDetails, request *admissionv1.AdmissionRequest) bool {
 	currentUser := request.UserInfo.Username
 	for i, approver := range oldObjApprovers {
@@ -587,13 +587,13 @@ func CheckOtherUsersForInvalidChanges(oldObjApprovers, newObjApprover []v1alpha1
 				}
 			}
 
-			// Check that existing users (other than current user) haven't changed their input
+			// Other members must remain present with their original approval input.
 			for userName, oldInput := range oldUsers {
 				if userName != currentUser {
-					if newInput, exists := newUsers[userName]; exists {
-						if oldInput != newInput {
-							return false // Someone else's input changed
-						}
+					// A missing member is a deletion, including in a stale full-list update.
+					newInput, exists := newUsers[userName]
+					if !exists || oldInput != newInput {
+						return false
 					}
 				}
 			}
